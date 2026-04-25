@@ -13,7 +13,7 @@ export const tanStackTableFeature = {
   shortLabel: 'TS',
   title: 'TanStack Table',
   description: 'Headless table primitives with maximum control when design requirements are not negotiable.',
-  status: 'planned',
+  status: 'in-progress',
   library: '@tanstack/react-table',
   strengths: ['Full UI control', 'Composable', 'Lightweight core'],
   evaluationFocus: 'Focus on implementation effort versus the upside of total rendering and behavior control.',

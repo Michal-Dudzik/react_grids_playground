@@ -1,0 +1,56 @@
+/* Flexbox layout for grid and custom footer */
+.syncfusion-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.syncfusion-grid-flex {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.syncfusion-grid-base {
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.syncfusion-grid-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+.syncfusion-aggregation-container {
+  flex-shrink: 0;
+}
+
+/* Grid coloring */
+.row-requires-attention {
+  background-color: #faa9a9 !important; 
+}
+
+.cell-locked {
+  background-color: #6f6f6f !important;
+  color: #fff !important;
+}
+
+/* Search highlighting */
+.search-highlight {
+  background-color: #ffeb3b;
+  color: #000;
+  font-weight: 500;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+/* Prevent ellipsis in checkbox selection column */
+.e-grid .e-headercell[data-colindex="0"] .e-headercelldiv,
+.e-grid .e-headercell:first-child .e-headercelldiv {
+  text-overflow: clip !important;
+  overflow: hidden !important;
+}

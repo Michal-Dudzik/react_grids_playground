@@ -47,6 +47,11 @@ export function OverviewPage() {
             id={`overview-panel-${activeFeature.id}`}
             role="tabpanel"
           >
+            {activeFeature.checklist.summary ? (
+              <div className="overview-checklist__summary">
+                {activeFeature.checklist.summary}
+              </div>
+            ) : null}
             <div className="overview-checklist__sections">
               {gridChecklistSections.map((section) => {
                 const sectionTotals = getChecklistSectionTotals(activeFeature.checklist, section);
