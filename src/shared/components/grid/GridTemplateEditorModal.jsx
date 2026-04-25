@@ -53,12 +53,87 @@ const cellDisplayOptions = [
   { label: 'Compact pill', value: 'pill' },
 ];
 
+const previewColors = {
+  accent: { background: 'rgba(182, 84, 60, 0.14)', text: '#8f3d29' },
+  info: { background: 'rgba(62, 114, 168, 0.12)', text: '#3e72a8' },
+  muted: { background: 'rgba(98, 86, 73, 0.12)', text: '#625649' },
+  success: { background: 'rgba(47, 143, 99, 0.12)', text: '#2f8f63' },
+  warning: { background: 'rgba(197, 127, 37, 0.14)', text: '#8a5a12' },
+};
+
 function shouldShowValueInput(operator, target) {
   return target !== 'header' && operator !== 'empty' && operator !== 'notEmpty';
 }
 
 function normalizeColor(value) {
   return value || '#000000';
+}
+
+function getOptionLabel(options, value) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function getRuleSummary(rule, columnOptions) {
+  const target = getOptionLabel(targetOptions, rule.target);
+  const field = getOptionLabel(columnOptions, rule.field);
+
+  if (rule.target === 'header') {
+    return `${target} for ${field}`;
+  }
+
+  const operator = getOptionLabel(operatorOptions, rule.operator).toLowerCase();
+  const value = shouldShowValueInput(rule.operator, rule.target) ? ` "${rule.value || '...'}"` : '';
+
+  return `${target} when ${field} ${operator}${value}`;
+}
+
+function getPreviewStyle(rule) {
+  const fallback = previewColors[rule.decoration] ?? previewColors.info;
+
+  return {
+    '--preview-accent': rule.textColor || fallback.text,
+    background: rule.backgroundColor || fallback.background,
+    color: rule.textColor || fallback.text,
+  };
+}
+
+function RulePreview({ rule }) {
+  const previewText = rule.value || 'Example';
+
+  if (rule.target !== 'cell' || rule.cellDisplay === 'value') {
+    return (
+      <div className="shared-grid-template-editor__preview-value" style={getPreviewStyle(rule)}>
+        {previewText}
+        {rule.target === 'cell' ? <span className="shared-grid-template-editor__preview-dot" /> : null}
+      </div>
+    );
+  }
+
+  if (rule.cellDisplay === 'dot') {
+    return <span className="shared-grid-template-editor__preview-dot shared-grid-template-editor__preview-dot--large" style={getPreviewStyle(rule)} />;
+  }
+
+  if (rule.cellDisplay === 'pill') {
+    return (
+      <span className="shared-grid-template-editor__preview-pill" style={getPreviewStyle(rule)}>
+        {previewText}
+      </span>
+    );
+  }
+
+  if (rule.cellDisplay === 'booleanIcon') {
+    return (
+      <span className="shared-grid-template-editor__preview-mark" style={getPreviewStyle(rule)}>
+        ✓ / ×
+      </span>
+    );
+  }
+
+  return (
+    <span className="shared-grid-template-editor__preview-mark" style={getPreviewStyle(rule)}>
+      {rule.cellDisplay === 'cross' ? '×' : '✓'}
+    </span>
+  );
 }
 
 const DragHandleContext = createContext(null);
@@ -152,7 +227,7 @@ export function GridTemplateEditorModal({
   }
 
   return (
-    <Modal footer={null} onCancel={onClose} open={open} title="Presentation settings" width={820}>
+    <Modal footer={null} onCancel={onClose} open={open} title="Presentation settings" width={1080}>
       <Space className="shared-grid-modal__stack" orientation="vertical" size={16}>
         <Alert
           icon={<InfoCircleOutlined />}
@@ -209,107 +284,129 @@ export function GridTemplateEditorModal({
                           </Tooltip>
                         </div>
 
-                        <div className="shared-grid-template-editor__grid">
-                          <label>
-                            <span>Target</span>
-                            <Select
-                              onChange={(value) =>
-                                onUpdateRule?.(rule.id, {
-                                  target: value,
-                                  operator: value === 'header' ? 'equals' : rule.operator,
-                                })
-                              }
-                              options={targetOptions}
-                              value={rule.target}
-                            />
-                          </label>
+                        <div className="shared-grid-template-editor__rule-body">
+                          <div className="shared-grid-template-editor__sections">
+                            <section className="shared-grid-template-editor__section">
+                              <div className="shared-grid-template-editor__section-title">When</div>
+                              <div className="shared-grid-template-editor__grid">
+                                <label>
+                                  <span>Target</span>
+                                  <Select
+                                    onChange={(value) =>
+                                      onUpdateRule?.(rule.id, {
+                                        target: value,
+                                        operator: value === 'header' ? 'equals' : rule.operator,
+                                      })
+                                    }
+                                    options={targetOptions}
+                                    value={rule.target}
+                                  />
+                                </label>
 
-                          <label>
-                            <span>Field</span>
-                            <Select
-                              onChange={(value) => onUpdateRule?.(rule.id, { field: value })}
-                              options={columnOptions}
-                              value={rule.field}
-                            />
-                          </label>
+                                <label>
+                                  <span>Field</span>
+                                  <Select
+                                    onChange={(value) => onUpdateRule?.(rule.id, { field: value })}
+                                    options={columnOptions}
+                                    value={rule.field}
+                                  />
+                                </label>
 
-                          <label>
-                            <span>Operator</span>
-                            <Select
-                              disabled={rule.target === 'header'}
-                              onChange={(value) => onUpdateRule?.(rule.id, { operator: value })}
-                              options={operatorOptions}
-                              value={rule.operator}
-                            />
-                          </label>
+                                <label>
+                                  <span>Operator</span>
+                                  <Select
+                                    disabled={rule.target === 'header'}
+                                    onChange={(value) => onUpdateRule?.(rule.id, { operator: value })}
+                                    options={operatorOptions}
+                                    value={rule.operator}
+                                  />
+                                </label>
 
-                          {valueInputVisible ? (
-                            <label>
-                              <span>Value</span>
-                              <Input
-                                onChange={(event) => onUpdateRule?.(rule.id, { value: event.target.value })}
-                                value={rule.value}
-                              />
-                            </label>
-                          ) : null}
+                                {valueInputVisible ? (
+                                  <label>
+                                    <span>Value</span>
+                                    <Input
+                                      onChange={(event) => onUpdateRule?.(rule.id, { value: event.target.value })}
+                                      value={rule.value}
+                                    />
+                                  </label>
+                                ) : null}
+                              </div>
+                            </section>
 
-                          <label>
-                            <span>Decoration</span>
-                            <Select
-                              onChange={(value) => onUpdateRule?.(rule.id, { decoration: value })}
-                              options={decorationOptions}
-                              value={rule.decoration}
-                            />
-                          </label>
+                            <section className="shared-grid-template-editor__section">
+                              <div className="shared-grid-template-editor__section-title">Style</div>
+                              <div className="shared-grid-template-editor__grid">
+                                <label>
+                                  <span>Preset</span>
+                                  <Select
+                                    onChange={(value) => onUpdateRule?.(rule.id, { decoration: value })}
+                                    options={decorationOptions}
+                                    value={rule.decoration}
+                                  />
+                                </label>
 
-                          <label>
-                            <span>Text color</span>
-                            <div className="shared-grid-template-editor__color-field">
-                              <input
-                                aria-label="Text color"
-                                onChange={(event) => onUpdateRule?.(rule.id, { textColor: event.target.value })}
-                                type="color"
-                                value={normalizeColor(rule.textColor)}
-                              />
-                              <Button
-                                disabled={!rule.textColor}
-                                onClick={() => onUpdateRule?.(rule.id, { textColor: '' })}
-                              >
-                                Clear
-                              </Button>
+                                <label>
+                                  <span>Text</span>
+                                  <div className="shared-grid-template-editor__color-field">
+                                    <input
+                                      aria-label="Text color"
+                                      onChange={(event) => onUpdateRule?.(rule.id, { textColor: event.target.value })}
+                                      type="color"
+                                      value={normalizeColor(rule.textColor)}
+                                    />
+                                    <Button
+                                      disabled={!rule.textColor}
+                                      onClick={() => onUpdateRule?.(rule.id, { textColor: '' })}
+                                    >
+                                      Auto
+                                    </Button>
+                                  </div>
+                                </label>
+
+                                <label>
+                                  <span>Background</span>
+                                  <div className="shared-grid-template-editor__color-field">
+                                    <input
+                                      aria-label="Background color"
+                                      onChange={(event) => onUpdateRule?.(rule.id, { backgroundColor: event.target.value })}
+                                      type="color"
+                                      value={normalizeColor(rule.backgroundColor)}
+                                    />
+                                    <Button
+                                      disabled={!rule.backgroundColor}
+                                      onClick={() => onUpdateRule?.(rule.id, { backgroundColor: '' })}
+                                    >
+                                      Auto
+                                    </Button>
+                                  </div>
+                                </label>
+
+                                {rule.target === 'cell' ? (
+                                  <label>
+                                    <span>Display</span>
+                                    <Select
+                                      onChange={(value) => onUpdateRule?.(rule.id, { cellDisplay: value })}
+                                      options={cellDisplayOptions}
+                                      value={rule.cellDisplay}
+                                    />
+                                  </label>
+                                ) : null}
+                              </div>
+                            </section>
+                          </div>
+
+                          <aside className="shared-grid-template-editor__preview">
+                            <div className="shared-grid-template-editor__section-title">Preview</div>
+                            <div className="shared-grid-template-editor__preview-box">
+                              <RulePreview rule={rule} />
                             </div>
-                          </label>
-
-                          <label>
-                            <span>Background</span>
-                            <div className="shared-grid-template-editor__color-field">
-                              <input
-                                aria-label="Background color"
-                                onChange={(event) => onUpdateRule?.(rule.id, { backgroundColor: event.target.value })}
-                                type="color"
-                                value={normalizeColor(rule.backgroundColor)}
-                              />
-                              <Button
-                                disabled={!rule.backgroundColor}
-                                onClick={() => onUpdateRule?.(rule.id, { backgroundColor: '' })}
-                              >
-                                Clear
-                              </Button>
-                            </div>
-                          </label>
-
-                          {rule.target === 'cell' ? (
-                            <label>
-                              <span>Cell display</span>
-                              <Select
-                                onChange={(value) => onUpdateRule?.(rule.id, { cellDisplay: value })}
-                                options={cellDisplayOptions}
-                                value={rule.cellDisplay}
-                              />
-                            </label>
-                          ) : null}
+                          </aside>
                         </div>
                         <div className="shared-grid-template-editor__rule-footer">
+                          <div className="shared-grid-template-editor__summary">
+                            {getRuleSummary(rule, columnOptions)}
+                          </div>
                           <RuleDragHandle ruleName={rule.name} />
                         </div>
                       </div>
