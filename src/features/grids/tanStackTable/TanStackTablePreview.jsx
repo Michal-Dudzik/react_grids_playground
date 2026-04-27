@@ -66,6 +66,19 @@ const defaultContextMenuConfig = {
   hiddenMap: {},
   labels: {},
 };
+const advancedFilterOperators = [
+  { label: 'Contains', value: 'contains' },
+  { label: 'Does not contain', value: 'notContains' },
+  { label: 'Equals', value: 'equals' },
+  { label: 'Does not equal', value: 'notEquals' },
+  { label: 'Starts with', value: 'startsWith' },
+  { label: 'Ends with', value: 'endsWith' },
+  { label: 'Greater than', value: 'greaterThan' },
+  { label: 'Less than', value: 'lessThan' },
+  { label: 'Is empty', value: 'empty' },
+  { label: 'Is not empty', value: 'notEmpty' },
+];
+const advancedFilterOperatorsWithoutInput = new Set(['empty', 'notEmpty']);
 const defaultPresentationRules = [
   {
     id: 'default-live-row',
@@ -141,6 +154,7 @@ function buildUniqueOptions(field) {
 const baseColumns = [
   {
     accessorKey: 'id',
+    filterFn: advancedColumnFilterFn,
     header: 'Campaign',
     size: 150,
     meta: {
@@ -149,6 +163,7 @@ const baseColumns = [
   },
   {
     accessorKey: 'owner',
+    filterFn: advancedColumnFilterFn,
     header: 'Owner',
     size: 180,
     meta: {
@@ -159,7 +174,7 @@ const baseColumns = [
   {
     accessorKey: 'region',
     header: 'Region',
-    filterFn: 'equalsString',
+    filterFn: advancedColumnFilterFn,
     size: 160,
     meta: {
       editable: true,
@@ -170,7 +185,7 @@ const baseColumns = [
   {
     accessorKey: 'status',
     header: 'Status',
-    filterFn: 'equalsString',
+    filterFn: advancedColumnFilterFn,
     size: 150,
     meta: {
       editable: true,
@@ -180,6 +195,7 @@ const baseColumns = [
   },
   {
     accessorKey: 'revenue',
+    filterFn: advancedColumnFilterFn,
     header: 'Revenue',
     size: 140,
     meta: {
@@ -189,6 +205,7 @@ const baseColumns = [
   },
   {
     accessorKey: 'updatedAt',
+    filterFn: advancedColumnFilterFn,
     header: 'Updated',
     size: 140,
     meta: {
@@ -301,6 +318,110 @@ async function saveColumnPreferencesToApi({ appId, gridId, payload, request = fe
   return contentType.includes('application/json') ? response.json() : { success: true };
 }
 
+function getEmptyAdvancedFilterValue() {
+  return {
+    operator: 'contains',
+    query: '',
+    selectedValues: [],
+  };
+}
+
+function normalizeAdvancedFilterValue(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const validOperator = advancedFilterOperators.some((operator) => operator.value === value.operator)
+      ? value.operator
+      : 'contains';
+
+    return {
+      operator: validOperator,
+      query: String(value.query ?? ''),
+      selectedValues: Array.isArray(value.selectedValues)
+        ? [...new Set(value.selectedValues.map((option) => String(option ?? '')))]
+        : [],
+    };
+  }
+
+  return {
+    ...getEmptyAdvancedFilterValue(),
+    query: String(value ?? ''),
+  };
+}
+
+function isAdvancedFilterActive(value) {
+  const filterValue = normalizeAdvancedFilterValue(value);
+
+  return (
+    filterValue.selectedValues.length > 0 ||
+    advancedFilterOperatorsWithoutInput.has(filterValue.operator) ||
+    filterValue.query.trim().length > 0
+  );
+}
+
+function buildColumnUniqueValues(rows, columnId) {
+  return [...new Set(rows.map((row) => String(row[columnId] ?? '')))].sort((first, second) =>
+    first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' }),
+  );
+}
+
+function formatFilterOptionLabel(value) {
+  return value === '' ? '(Blanks)' : value;
+}
+
+function normalizeSelectedFilterValues(selectedValues, allValues) {
+  const allValueSet = new Set(allValues);
+  const normalizedValues = [...new Set(selectedValues.map((value) => String(value ?? '')))].filter((value) =>
+    allValueSet.has(value),
+  );
+
+  return normalizedValues.length === allValues.length ? [] : normalizedValues;
+}
+
+function getComparableFilterText(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function advancedColumnFilterFn(row, columnId, filterValue) {
+  const normalizedFilter = normalizeAdvancedFilterValue(filterValue);
+  const rawValue = row.getValue(columnId);
+  const textValue = String(rawValue ?? '');
+  const normalizedValue = getComparableFilterText(textValue);
+  const normalizedQuery = getComparableFilterText(normalizedFilter.query);
+
+  if (normalizedFilter.selectedValues.length > 0 && !normalizedFilter.selectedValues.includes(textValue)) {
+    return false;
+  }
+
+  switch (normalizedFilter.operator) {
+    case 'empty':
+      return textValue.trim().length === 0;
+    case 'notEmpty':
+      return textValue.trim().length > 0;
+    case 'notContains':
+      return normalizedQuery ? !normalizedValue.includes(normalizedQuery) : true;
+    case 'equals':
+      return normalizedQuery ? normalizedValue === normalizedQuery : true;
+    case 'notEquals':
+      return normalizedQuery ? normalizedValue !== normalizedQuery : true;
+    case 'startsWith':
+      return normalizedQuery ? normalizedValue.startsWith(normalizedQuery) : true;
+    case 'endsWith':
+      return normalizedQuery ? normalizedValue.endsWith(normalizedQuery) : true;
+    case 'greaterThan': {
+      const actualNumber = parseAggregateNumber(rawValue);
+      const expectedNumber = parseAggregateNumber(normalizedFilter.query);
+      return actualNumber !== null && expectedNumber !== null && actualNumber > expectedNumber;
+    }
+    case 'lessThan': {
+      const actualNumber = parseAggregateNumber(rawValue);
+      const expectedNumber = parseAggregateNumber(normalizedFilter.query);
+      return actualNumber !== null && expectedNumber !== null && actualNumber < expectedNumber;
+    }
+    case 'contains':
+    default:
+      return normalizedQuery ? normalizedValue.includes(normalizedQuery) : true;
+  }
+}
+
 function normalizeFilterState(filterState) {
   const validColumnIds = new Set(defaultColumnOrder);
   const columnFilters = Array.isArray(filterState?.columnFilters)
@@ -308,9 +429,9 @@ function normalizeFilterState(filterState) {
         .filter((filter) => validColumnIds.has(filter?.id) && filter.id !== 'select')
         .map((filter) => ({
           id: filter.id,
-          value: String(filter.value ?? ''),
+          value: normalizeAdvancedFilterValue(filter.value),
         }))
-        .filter((filter) => filter.value.trim())
+        .filter((filter) => isAdvancedFilterActive(filter.value))
     : [];
   const globalFilter = String(filterState?.globalFilter ?? '').trim();
 
@@ -1064,6 +1185,218 @@ function TableCheckbox({ checked, indeterminate = false, ...props }) {
   return <input checked={checked} ref={inputRef} type="checkbox" {...props} />;
 }
 
+function AdvancedColumnFilterButton({
+  column,
+  isOpen,
+  onClear,
+  onClose,
+  onFilterChange,
+  onToggle,
+  rows,
+}) {
+  const panelRef = useRef(null);
+  const [valueSearch, setValueSearch] = useState('');
+  const filterValue = normalizeAdvancedFilterValue(column.getFilterValue());
+  const isActive = isAdvancedFilterActive(filterValue);
+  const label = getColumnLabelFromColumn(column);
+  const allColumnValues = useMemo(() => buildColumnUniqueValues(rows, column.id), [column.id, rows]);
+  const visibleColumnValues = useMemo(() => {
+    const normalizedSearch = valueSearch.trim().toLowerCase();
+
+    return normalizedSearch
+      ? allColumnValues.filter((value) => value.toLowerCase().includes(normalizedSearch))
+      : allColumnValues;
+  }, [allColumnValues, valueSearch]);
+  const selectedValues = filterValue.selectedValues;
+  const selectedValueSet = new Set(selectedValues);
+  const allValuesSelected = selectedValues.length === 0;
+  const conditionActive =
+    advancedFilterOperatorsWithoutInput.has(filterValue.operator) || filterValue.query.trim().length > 0;
+  const allVisibleValuesSelected =
+    allValuesSelected ||
+    (visibleColumnValues.length > 0 && visibleColumnValues.every((value) => selectedValueSet.has(value)));
+  const someValuesSelected =
+    !allValuesSelected &&
+    visibleColumnValues.some((value) => selectedValueSet.has(value)) &&
+    !allVisibleValuesSelected;
+  const selectedSummary = allValuesSelected
+    ? conditionActive
+      ? 'Rule'
+      : 'All'
+    : `${selectedValues.length}/${allColumnValues.length}`;
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (panelRef.current?.contains(event.target)) {
+        return;
+      }
+
+      onClose();
+    }
+
+    window.addEventListener('mousedown', handlePointerDown);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setValueSearch('');
+    }
+  }, [isOpen]);
+
+  function commitFilter(patch) {
+    onFilterChange(column.id, {
+      ...filterValue,
+      ...patch,
+    });
+  }
+
+  function commitSelectedValues(nextSelectedValues) {
+    commitFilter({
+      selectedValues: normalizeSelectedFilterValues(nextSelectedValues, allColumnValues),
+    });
+  }
+
+  function toggleFilterOption(option) {
+    if (allValuesSelected) {
+      commitSelectedValues(allColumnValues.filter((value) => value !== option));
+      return;
+    }
+
+    if (selectedValueSet.has(option)) {
+      commitSelectedValues(selectedValues.filter((value) => value !== option));
+      return;
+    }
+
+    commitSelectedValues([...selectedValues, option]);
+  }
+
+  function toggleVisibleOptions() {
+    if (allVisibleValuesSelected) {
+      const currentSelection = allValuesSelected ? allColumnValues : selectedValues;
+      const visibleValueSet = new Set(visibleColumnValues);
+      commitSelectedValues(currentSelection.filter((value) => !visibleValueSet.has(value)));
+      return;
+    }
+
+    commitSelectedValues([...selectedValues, ...visibleColumnValues]);
+  }
+
+  return (
+    <div className="tanstack-grid__filter-menu-wrap" ref={panelRef}>
+      <button
+        className={mergeClassNames(
+          'tanstack-grid__filter-trigger',
+          isActive ? 'tanstack-grid__filter-trigger--active' : '',
+        )}
+        onClick={onToggle}
+        type="button"
+      >
+        <span>{label}</span>
+        <strong>{selectedSummary}</strong>
+      </button>
+
+      {isOpen ? (
+        <div className="tanstack-grid__filter-menu">
+          <div className="tanstack-grid__filter-menu-title">
+            <span>{label}</span>
+            <button aria-label="Close filter menu" onClick={onClose} type="button">
+              ×
+            </button>
+          </div>
+
+          <div className="tanstack-grid__filter-menu-actions">
+            <button onClick={() => column.toggleSorting(false)} type="button">
+              Sort A to Z
+            </button>
+            <button onClick={() => column.toggleSorting(true)} type="button">
+              Sort Z to A
+            </button>
+            <button disabled={!column.getIsSorted()} onClick={() => column.clearSorting()} type="button">
+              Clear sort
+            </button>
+          </div>
+
+          <div className="tanstack-grid__filter-condition">
+            <label className="tanstack-grid__field">
+              <span>Condition</span>
+              <select
+                onChange={(event) => commitFilter({ operator: event.target.value })}
+                value={filterValue.operator}
+              >
+                {advancedFilterOperators.map((operator) => (
+                  <option key={operator.value} value={operator.value}>
+                    {operator.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="tanstack-grid__field">
+              <span>Value</span>
+              <input
+                disabled={advancedFilterOperatorsWithoutInput.has(filterValue.operator)}
+                onChange={(event) => commitFilter({ query: event.target.value })}
+                placeholder="Filter value"
+                type="text"
+                value={filterValue.query}
+              />
+            </label>
+          </div>
+
+          <div className="tanstack-grid__filter-values">
+            <input
+              aria-label={`Search ${label} values`}
+              onChange={(event) => setValueSearch(event.target.value)}
+              placeholder="Search values"
+              type="text"
+              value={valueSearch}
+            />
+            <label className="tanstack-grid__filter-check">
+              <TableCheckbox
+                checked={allVisibleValuesSelected}
+                indeterminate={someValuesSelected}
+                onChange={toggleVisibleOptions}
+              />
+              <span>Select all</span>
+            </label>
+            <div className="tanstack-grid__filter-options">
+              {visibleColumnValues.map((option) => (
+                <label className="tanstack-grid__filter-check" key={option}>
+                  <input
+                    checked={allValuesSelected || selectedValueSet.has(option)}
+                    onChange={() => toggleFilterOption(option)}
+                    type="checkbox"
+                  />
+                  <span>{formatFilterOptionLabel(option)}</span>
+                </label>
+              ))}
+              {visibleColumnValues.length === 0 ? (
+                <span className="tanstack-grid__filter-empty">No values found</span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="tanstack-grid__filter-menu-footer">
+            <button disabled={!isActive} onClick={() => onClear(column.id)} type="button">
+              Clear
+            </button>
+            <button className="tanstack-grid__button--primary" onClick={onClose} type="button">
+              Done
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ContextMenuItemButton({ item, onSelect }) {
   if (item.separator) {
     return <div className="tanstack-grid__context-menu-separator" role="separator" />;
@@ -1219,6 +1552,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [openFilterColumnId, setOpenFilterColumnId] = useState('');
   const [columnsModalOpen, setColumnsModalOpen] = useState(false);
   const [columnSettingsSaving, setColumnSettingsSaving] = useState(false);
   const [columnSettingsError, setColumnSettingsError] = useState('');
@@ -1414,7 +1748,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
         tableRows: aggregateRows,
       })
     : [];
-  const activeColumnFilters = columnFilters.filter((filter) => String(filter.value ?? '').trim()).length;
+  const activeColumnFilters = columnFilters.filter((filter) => isAdvancedFilterActive(filter.value)).length;
   const activePresentationRules = presentationRules.filter((rule) => rule.enabled).length;
   const rowDensityConfig = rowDensityConfigs[rowDensity] ?? rowDensityConfigs.standard;
   const pageSizeOptions = useMemo(
@@ -1524,12 +1858,28 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
 
   function updateColumnFilter(columnId, value) {
     const column = table.getColumn(columnId);
-    const normalizedValue = typeof value === 'string' ? value : String(value ?? '');
-    column?.setFilterValue(normalizedValue.trim() ? normalizedValue : undefined);
+    const normalizedValue = normalizeAdvancedFilterValue({
+      ...getEmptyAdvancedFilterValue(),
+      selectedValues: [String(value ?? '')],
+    });
+
+    column?.setFilterValue(isAdvancedFilterActive(normalizedValue) ? normalizedValue : undefined);
+  }
+
+  function updateAdvancedColumnFilter(columnId, filterValue) {
+    const column = table.getColumn(columnId);
+    const normalizedValue = normalizeAdvancedFilterValue(filterValue);
+
+    column?.setFilterValue(isAdvancedFilterActive(normalizedValue) ? normalizedValue : undefined);
+  }
+
+  function clearAdvancedColumnFilter(columnId) {
+    table.getColumn(columnId)?.setFilterValue(undefined);
   }
 
   function clearColumnFilters() {
     setColumnFilters([]);
+    setOpenFilterColumnId('');
   }
 
   function exportFilteredRows() {
@@ -2296,40 +2646,22 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
           <div className="tanstack-grid__inline-panel">
             <div className="tanstack-grid__filters">
               {table
-                .getAllLeafColumns()
+                .getVisibleLeafColumns()
                 .filter((column) => column.id !== 'select')
-                .map((column) => {
-                  const filterVariant = column.columnDef.meta?.filterVariant ?? 'text';
-                  const filterValue = column.getFilterValue() ?? '';
-                  const label =
-                    typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id;
-
-                  return (
-                    <label className="tanstack-grid__field" key={column.id}>
-                      <span>{label}</span>
-                      {filterVariant === 'select' ? (
-                        <select
-                          onChange={(event) => updateColumnFilter(column.id, event.target.value)}
-                          value={filterValue}
-                        >
-                          <option value="">All</option>
-                          {column.columnDef.meta?.filterOptions?.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          onChange={(event) => updateColumnFilter(column.id, event.target.value)}
-                          placeholder={`Filter ${label.toLowerCase()}`}
-                          type="text"
-                          value={filterValue}
-                        />
-                      )}
-                    </label>
-                  );
-                })}
+                .map((column) => (
+                  <AdvancedColumnFilterButton
+                    column={column}
+                    isOpen={openFilterColumnId === column.id}
+                    key={column.id}
+                    onClear={clearAdvancedColumnFilter}
+                    onClose={() => setOpenFilterColumnId('')}
+                    onFilterChange={updateAdvancedColumnFilter}
+                    onToggle={() =>
+                      setOpenFilterColumnId((currentColumnId) => (currentColumnId === column.id ? '' : column.id))
+                    }
+                    rows={tableData}
+                  />
+                ))}
 
               <div className="tanstack-grid__filter-actions">
                 <span className="tanstack-grid__filter-count">
