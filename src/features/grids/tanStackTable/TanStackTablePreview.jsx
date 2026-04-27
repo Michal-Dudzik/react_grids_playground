@@ -6,11 +6,11 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Component, forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { StatusBadge } from '../../demoData/StatusBadge';
 import { getDemoRows } from '../../demoData';
-import { Button, Dropdown, Empty, Tag } from 'antd';
+import { Alert, Button, Dropdown, Empty } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import { GridColumnsModal } from '../../../shared/components/grid/GridColumnsModal';
 import { GridFooter } from '../../../shared/components/grid/GridFooter';
@@ -46,6 +46,25 @@ const rowDensityConfigs = {
     label: 'Comfortable',
     rowHeight: 72,
   },
+};
+const defaultAggregationLabels = {
+  aggregateColumn: 'Aggregate column',
+  average: 'Average',
+  filtered: 'All filtered rows',
+  max: 'Max',
+  min: 'Min',
+  page: 'Current page',
+  scope: 'Aggregation scope',
+  summary: 'Aggregates',
+  sum: 'Sum',
+};
+const defaultAggregationOperations = ['sum', 'average', 'min', 'max'];
+const defaultContextMenuConfig = {
+  cellItems: [],
+  disabledMap: {},
+  headerItems: [],
+  hiddenMap: {},
+  labels: {},
 };
 const defaultPresentationRules = [
   {
@@ -407,25 +426,170 @@ function parseCurrency(value) {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-US', {
+function parseAggregateNumber(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const text = String(value ?? '').trim();
+
+  if (!text) {
+    return null;
+  }
+
+  const normalizedNumber = text.replaceAll(',', '');
+  const hasCurrencySymbol = /[$€£¥]/.test(text);
+  const isPlainNumericText = /^-?\d+(\.\d+)?$/.test(normalizedNumber);
+
+  if (!hasCurrencySymbol && !isPlainNumericText) {
+    return null;
+  }
+
+  const numericValue = Number(text.replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function formatCurrency(value, locale = 'en-US') {
+  return new Intl.NumberFormat(locale, {
     currency: 'USD',
     maximumFractionDigits: 0,
     style: 'currency',
   }).format(value);
 }
 
-function getRevenueAggregates(tableRows) {
-  const values = tableRows.map((row) => parseCurrency(row.original.revenue));
+function formatNumber(value, locale = 'en-US') {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function getColumnLabelFromColumn(column) {
+  return typeof column?.columnDef?.header === 'string' ? column.columnDef.header : column?.id;
+}
+
+function getNumericAggregateValues(tableRows, columnId) {
+  return tableRows
+    .map((row) => parseAggregateNumber(row.original[columnId]))
+    .filter((value) => value !== null);
+}
+
+function columnLooksAggregatable(column, tableRows) {
+  if (!column || column.id === 'select') {
+    return false;
+  }
+
+  const values = getNumericAggregateValues(tableRows, column.id);
+  return values.length > 0 && values.some((value) => value !== 0);
+}
+
+function getAggregationColumnOptions(columns, tableRows, aggregationConfig = {}) {
+  if (Array.isArray(aggregationConfig.columns) && aggregationConfig.columns.length > 0) {
+    return aggregationConfig.columns
+      .map((columnConfig) => {
+        const columnId = typeof columnConfig === 'string' ? columnConfig : columnConfig.id;
+        const column = columns.find((visibleColumn) => visibleColumn.id === columnId);
+
+        if (!column) {
+          return null;
+        }
+
+        return {
+          key: column.id,
+          label: typeof columnConfig === 'object' && columnConfig.label ? columnConfig.label : getColumnLabelFromColumn(column),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  return columns
+    .filter((column) => columnLooksAggregatable(column, tableRows))
+    .map((column) => ({
+      key: column.id,
+      label: getColumnLabelFromColumn(column),
+    }));
+}
+
+function getAggregationOperations(aggregationConfig = {}) {
+  return Array.isArray(aggregationConfig.operations) && aggregationConfig.operations.length > 0
+    ? aggregationConfig.operations
+    : defaultAggregationOperations;
+}
+
+function formatAggregateValue({ aggregationConfig = {}, columnId, locale, operation, value }) {
+  if (typeof aggregationConfig.formatValue === 'function') {
+    return aggregationConfig.formatValue(value, { columnId, operation });
+  }
+
+  if (!Number.isFinite(Number(value))) {
+    return String(value ?? '');
+  }
+
+  return columnId === 'revenue' ? formatCurrency(value, locale) : formatNumber(value, locale);
+}
+
+function getColumnAggregates({ aggregationConfig = {}, columnId, labels, locale = 'en-US', tableRows }) {
+  const values = getNumericAggregateValues(tableRows, columnId);
   const total = values.reduce((sum, value) => sum + value, 0);
   const average = values.length > 0 ? total / values.length : 0;
+  const operationValues = {
+    average,
+    avg: average,
+    max: values.length > 0 ? Math.max(...values) : 0,
+    min: values.length > 0 ? Math.min(...values) : 0,
+    sum: total,
+  };
 
-  return [
-    { label: 'Sum', value: formatCurrency(total) },
-    { label: 'Average', value: formatCurrency(average) },
-    { label: 'Min', value: formatCurrency(values.length > 0 ? Math.min(...values) : 0) },
-    { label: 'Max', value: formatCurrency(values.length > 0 ? Math.max(...values) : 0) },
-  ];
+  const builtInAggregates = getAggregationOperations(aggregationConfig)
+    .map((operation) => {
+      const normalizedOperation = operation === 'avg' ? 'average' : operation;
+      const value = operationValues[operation];
+
+      if (value === undefined) {
+        return null;
+      }
+
+      return {
+        key: normalizedOperation,
+        label: labels[normalizedOperation] ?? labels[operation] ?? operation,
+        value: formatAggregateValue({
+          aggregationConfig,
+          columnId,
+          locale,
+          operation: normalizedOperation,
+          value,
+        }),
+      };
+    })
+    .filter(Boolean);
+
+  const customAggregates = Array.isArray(aggregationConfig.customAggregates)
+    ? aggregationConfig.customAggregates
+        .map((aggregate) => {
+          if (typeof aggregate.calculate !== 'function') {
+            return null;
+          }
+
+          const value = aggregate.calculate(values, { columnId, rows: tableRows });
+
+          return {
+            key: aggregate.key ?? aggregate.label,
+            label: aggregate.label ?? aggregate.key,
+            value:
+              typeof aggregate.format === 'function'
+                ? aggregate.format(value, { columnId, rows: tableRows })
+                : formatAggregateValue({
+                    aggregationConfig,
+                    columnId,
+                    locale,
+                    operation: aggregate.key,
+                    value,
+                  }),
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  return [...builtInAggregates, ...customAggregates];
 }
 
 function getCellValue(row, columnId) {
@@ -540,6 +704,75 @@ function copyText(value) {
   textArea.select();
   document.execCommand('copy');
   textArea.remove();
+}
+
+function mergeClassNames(...classNames) {
+  return classNames.filter(Boolean).join(' ');
+}
+
+function getResolvedProps(propGetter, context) {
+  return typeof propGetter === 'function' ? propGetter(context) ?? {} : {};
+}
+
+function callOptionalHandler(handler, event, context) {
+  if (typeof handler === 'function') {
+    handler(event, context);
+  }
+}
+
+function normalizeContextMenuConfig(contextMenuConfig = {}) {
+  return {
+    ...defaultContextMenuConfig,
+    ...contextMenuConfig,
+    disabledMap: {
+      ...defaultContextMenuConfig.disabledMap,
+      ...(contextMenuConfig.disabledMap ?? {}),
+    },
+    hiddenMap: {
+      ...defaultContextMenuConfig.hiddenMap,
+      ...(contextMenuConfig.hiddenMap ?? {}),
+    },
+    labels: {
+      ...defaultContextMenuConfig.labels,
+      ...(contextMenuConfig.labels ?? {}),
+    },
+  };
+}
+
+function resolveContextMenuRule(rule, item, menuState) {
+  return typeof rule === 'function' ? rule({ item, menuState }) : Boolean(rule);
+}
+
+function prepareContextMenuItems(items, menuState, contextMenuConfig) {
+  const normalizedConfig = normalizeContextMenuConfig(contextMenuConfig);
+
+  return items
+    .map((item) => {
+      const hiddenRule = normalizedConfig.hiddenMap[item.key];
+
+      if (resolveContextMenuRule(hiddenRule, item, menuState)) {
+        return null;
+      }
+
+      const disabledRule = normalizedConfig.disabledMap[item.key];
+      const nextItem = {
+        ...item,
+        disabled: item.disabled || resolveContextMenuRule(disabledRule, item, menuState),
+        label: normalizedConfig.labels[item.key] ?? item.label,
+      };
+
+      if (Array.isArray(nextItem.items)) {
+        nextItem.items = prepareContextMenuItems(nextItem.items, menuState, normalizedConfig);
+      }
+
+      return nextItem;
+    })
+    .filter(Boolean);
+}
+
+function normalizeCustomContextMenuItems(items, menuState) {
+  const customItems = typeof items === 'function' ? items(menuState) : items;
+  return Array.isArray(customItems) ? customItems : [];
 }
 
 function renderHighlightedText(value, searchTerm) {
@@ -667,6 +900,12 @@ function buildPrintableMarkup({ columns, rows: tableRows, title }) {
   const headerMarkup = columns
     .map((column) => `<th>${escapeHtml(column.columnDef.header ?? column.id)}</th>`)
     .join('');
+  const colgroupMarkup = columns
+    .map((column) => {
+      const width = Number(column.getSize?.() ?? column.columnDef.size ?? 140);
+      return `<col style="width: ${Math.max(72, Math.round(width))}px" />`;
+    })
+    .join('');
 
   const bodyMarkup = tableRows
     .map(
@@ -703,6 +942,7 @@ function buildPrintableMarkup({ columns, rows: tableRows, title }) {
           table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
           }
 
           th,
@@ -724,6 +964,7 @@ function buildPrintableMarkup({ columns, rows: tableRows, title }) {
         <h1>${escapeHtml(title)}</h1>
         <p>${tableRows.length} rows</p>
         <table>
+          <colgroup>${colgroupMarkup}</colgroup>
           <thead>
             <tr>${headerMarkup}</tr>
           </thead>
@@ -777,6 +1018,38 @@ function openPrintWindow({ columns, rows: tableRows, title }) {
   frameDocument.open();
   frameDocument.write(buildPrintableMarkup({ columns, rows: tableRows, title }));
   frameDocument.close();
+}
+
+class TanStackTableErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.props.onError?.(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="tanstack-grid">
+          <Alert
+            description={this.state.error?.message ?? 'The grid failed to render.'}
+            message="TanStack table error"
+            showIcon
+            type="error"
+          />
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function TableCheckbox({ checked, indeterminate = false, ...props }) {
@@ -900,11 +1173,23 @@ function EditableCell({ column, getValue, renderPreview, row, searchTerm, table 
   );
 }
 
-export function TanStackTablePreview({
+const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewContent({
+  aggregationConfig = {},
   appId,
+  contextMenuConfig = {},
+  getCellProps,
+  getHeaderProps,
+  getRowProps,
   gridId,
+  loading = false,
+  locale = 'en-US',
+  onRowDoubleClick,
   onSaveColumnPreferences = saveColumnPreferencesToApi,
-} = {}) {
+  onSearchPropsChange,
+  onSelectionChange,
+  tableProps = {},
+  tableWrapperProps = {},
+} = {}, ref) {
   const persistedColumnState = useMemo(readColumnState, []);
   const persistedFilterState = useMemo(readFilterState, []);
   const initialColumnSettings = useMemo(() => buildColumnSettingsState(persistedColumnState), [persistedColumnState]);
@@ -931,6 +1216,7 @@ export function TanStackTablePreview({
   const [showFilters, setShowFilters] = useState(() => persistedFilterState.showFilters);
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState('page');
+  const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [columnsModalOpen, setColumnsModalOpen] = useState(false);
@@ -1104,10 +1390,30 @@ export function TanStackTablePreview({
   const visibleRows = showAllRows ? matchingRows : table.getRowModel().rows;
   const selectedRows = table.getSelectedRowModel().rows;
   const aggregateRows = aggregationScope === 'filtered' ? matchingRows : visibleRows;
-  const revenueAggregates = getRevenueAggregates(aggregateRows);
   const visibleExportColumns = table
     .getVisibleLeafColumns()
     .filter((column) => exportableFieldIds.includes(column.id));
+  const aggregationLabels = {
+    ...defaultAggregationLabels,
+    ...(aggregationConfig.labels ?? {}),
+  };
+  const aggregationColumnOptions = getAggregationColumnOptions(
+    visibleExportColumns,
+    matchingRows,
+    aggregationConfig,
+  );
+  const selectedAggregationColumnId = aggregationColumnOptions.some((option) => option.key === aggregationColumnId)
+    ? aggregationColumnId
+    : aggregationColumnOptions[0]?.key ?? '';
+  const aggregateItems = selectedAggregationColumnId
+    ? getColumnAggregates({
+        aggregationConfig,
+        columnId: selectedAggregationColumnId,
+        labels: aggregationLabels,
+        locale,
+        tableRows: aggregateRows,
+      })
+    : [];
   const activeColumnFilters = columnFilters.filter((filter) => String(filter.value ?? '').trim()).length;
   const activePresentationRules = presentationRules.filter((rule) => rule.enabled).length;
   const rowDensityConfig = rowDensityConfigs[rowDensity] ?? rowDensityConfigs.standard;
@@ -1118,6 +1424,12 @@ export function TanStackTablePreview({
         : [...pageSizeChoices, pagination.pageSize].sort((first, second) => first - second),
     [pagination.pageSize],
   );
+
+  useEffect(() => {
+    if (aggregationColumnId !== selectedAggregationColumnId) {
+      setAggregationColumnId(selectedAggregationColumnId);
+    }
+  }, [aggregationColumnId, selectedAggregationColumnId]);
 
   useEffect(() => {
     if (!autoPageSize || showAllRows) {
@@ -1172,8 +1484,18 @@ export function TanStackTablePreview({
   }, [autoPageSize, matchingRows.length, rowDensityConfig.rowHeight, showAllRows]);
 
   useEffect(() => {
-    setSelectedRowsReport(table.getSelectedRowModel().rows.map((row) => row.original.id));
-  }, [rowSelection, selectionMode, tableData]);
+    const selectedRowModels = table.getSelectedRowModel().rows;
+    const selectedRowIds = selectedRowModels.map((row) => row.original.id);
+
+    setSelectedRowsReport(selectedRowIds);
+    onSelectionChange?.(
+      selectedRowModels.map((row) => row.original),
+      {
+        ids: selectedRowIds,
+        table,
+      },
+    );
+  }, [onSelectionChange, rowSelection, selectionMode, tableData]);
 
   function applySearch(event) {
     if (event?.preventDefault) {
@@ -1188,6 +1510,17 @@ export function TanStackTablePreview({
     setGlobalFilter('');
     table.setPageIndex(0);
   }
+
+  useEffect(() => {
+    onSearchPropsChange?.({
+      appliedSearchTerm: globalFilter,
+      clearSearch,
+      executeSearch: applySearch,
+      inputValue: globalFilterDraft,
+      isSearching: false,
+      setInputValue: setGlobalFilterDraft,
+    });
+  }, [globalFilter, globalFilterDraft, onSearchPropsChange]);
 
   function updateColumnFilter(columnId, value) {
     const column = table.getColumn(columnId);
@@ -1472,6 +1805,48 @@ export function TanStackTablePreview({
     defaultColumnOrder.forEach((columnId) => fitColumnWidth(columnId));
   }
 
+  function readRenderedColumnWidths() {
+    const tableWrapElement = tableWrapRef.current;
+
+    if (!tableWrapElement) {
+      return {};
+    }
+
+    return Array.from(tableWrapElement.querySelectorAll('thead th[data-column-id]')).reduce(
+      (widths, headerCell) => {
+        const columnId = headerCell.getAttribute('data-column-id');
+
+        if (!columnId) {
+          return widths;
+        }
+
+        return {
+          ...widths,
+          [columnId]: Math.max(72, Math.round(headerCell.getBoundingClientRect().width)),
+        };
+      },
+      {},
+    );
+  }
+
+  function syncColumnWidthsFromDom() {
+    const renderedWidths = readRenderedColumnWidths();
+
+    if (Object.keys(renderedWidths).length === 0) {
+      return;
+    }
+
+    setColumnSizing((currentSizing) => ({
+      ...currentSizing,
+      ...renderedWidths,
+    }));
+  }
+
+  function activateRow(row, event) {
+    setLastDoubleClickedRow(row.original);
+    onRowDoubleClick?.(row.original, { event, row, table });
+  }
+
   function selectContextRow(rowId, replaceSelection = selectionMode === 'single') {
     if (replaceSelection) {
       setRowSelection({ [rowId]: true });
@@ -1569,6 +1944,11 @@ export function TanStackTablePreview({
             onSelect: fitAllColumnWidths,
           },
           {
+            key: 'sync-rendered-widths',
+            label: 'Sync rendered widths',
+            onSelect: syncColumnWidthsFromDom,
+          },
+          {
             key: 'reset-layout',
             label: 'Reset column layout',
             onSelect: resetColumnSettings,
@@ -1640,7 +2020,7 @@ export function TanStackTablePreview({
             disabled: !row,
             key: 'activate-row',
             label: 'Set as active row',
-            onSelect: () => setLastDoubleClickedRow(row.original),
+            onSelect: () => activateRow(row),
           },
           {
             disabled: !row,
@@ -1696,6 +2076,24 @@ export function TanStackTablePreview({
     item.onSelect?.();
     setContextMenu(null);
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getColumns: () => baseColumns,
+      getGridInstance: () => table,
+      getProcessedColumns: () => visibleExportColumns,
+      getSelectedRows: () => table.getSelectedRowModel().rows.map((row) => row.original),
+      getSelectedRowsCount: () => table.getSelectedRowModel().rows.length,
+      getTableInstance: () => table,
+      hasSelectedRows: () => table.getSelectedRowModel().rows.length > 0,
+      printAll: () => printRows('all'),
+      printCurrentPage: () => printRows('page'),
+      printSelected: () => printRows('selected'),
+      syncColumnWidths: syncColumnWidthsFromDom,
+    }),
+    [ref, table, visibleExportColumns],
+  );
 
   const orderedDataColumnIds = normalizeColumnOrder(columnOrder).filter((columnId) => columnId !== 'select');
   const columnOptions = orderedDataColumnIds
@@ -1775,18 +2173,14 @@ export function TanStackTablePreview({
     onToggleSummary: () => setShowSummary((current) => !current),
     footerButtons: [
       {
-        component: <Tag color="blue">{selectedRows.length} selected</Tag>,
-        isCustomComponent: true,
-        key: 'selection-count',
-      },
-      {
         component: (
           <Dropdown menu={{ items: printMenuItems }} trigger={['click']}>
-            <Button icon={<PrinterOutlined />}>Print</Button>
+            <Button aria-label="Print" icon={<PrinterOutlined />} title="Print" type="text" />
           </Dropdown>
         ),
         isCustomComponent: true,
         key: 'print',
+        title: 'Print',
       },
     ],
     showColumnsSettings: true,
@@ -1800,12 +2194,31 @@ export function TanStackTablePreview({
     summaryVisible: showSummary,
   });
 
-  const contextMenuItems =
+  const baseContextMenuItems =
     contextMenu?.target === 'header'
       ? buildHeaderContextMenuItems(contextMenu)
       : contextMenu?.target === 'cell'
         ? buildCellContextMenuItems(contextMenu)
         : [];
+  const contextMenuItems = contextMenu
+    ? prepareContextMenuItems(
+        [
+          ...baseContextMenuItems,
+          ...normalizeCustomContextMenuItems(
+            contextMenu.target === 'header' ? contextMenuConfig.headerItems : contextMenuConfig.cellItems,
+            contextMenu,
+          ),
+        ],
+        contextMenu,
+        contextMenuConfig,
+      )
+    : [];
+  const {
+    className: tableWrapperClassName,
+    style: tableWrapperStyle,
+    ...resolvedTableWrapperProps
+  } = tableWrapperProps;
+  const { className: tableClassName, style: tableStyle, ...resolvedTableProps } = tableProps;
 
   return (
     <div className="tanstack-grid">
@@ -1872,7 +2285,13 @@ export function TanStackTablePreview({
         </div>
       </div>
 
-      <div className="tanstack-grid__surface">
+      <div aria-busy={loading} className="tanstack-grid__surface">
+        {loading ? (
+          <div className="tanstack-grid__loading-overlay" role="status">
+            Loading table...
+          </div>
+        ) : null}
+
         {showFilters ? (
           <div className="tanstack-grid__inline-panel">
             <div className="tanstack-grid__filters">
@@ -1929,40 +2348,65 @@ export function TanStackTablePreview({
             <GridSummaryBar items={summaryItems} />
             <div className="tanstack-grid__aggregation-bar">
               <div className="tanstack-grid__aggregation-controls">
-                <span>Revenue aggregates</span>
+                <span>{aggregationLabels.summary}</span>
+                {aggregationColumnOptions.length > 1 ? (
+                  <select
+                    aria-label={aggregationLabels.aggregateColumn}
+                    onChange={(event) => setAggregationColumnId(event.target.value)}
+                    value={selectedAggregationColumnId}
+                  >
+                    {aggregationColumnOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 <select
-                  aria-label="Aggregation scope"
+                  aria-label={aggregationLabels.scope}
                   onChange={(event) => setAggregationScope(event.target.value)}
                   value={aggregationScope}
                 >
-                  <option value="page">Current page</option>
-                  <option value="filtered">All filtered rows</option>
+                  <option value="page">{aggregationLabels.page}</option>
+                  <option value="filtered">{aggregationLabels.filtered}</option>
                 </select>
               </div>
 
               <div className="tanstack-grid__aggregation-items">
-                {revenueAggregates.map((item) => (
-                  <span className="tanstack-grid__aggregation-item" key={item.label}>
+                {aggregateItems.map((item) => (
+                  <span className="tanstack-grid__aggregation-item" key={item.key ?? item.label}>
                     <strong>{item.label}</strong>
                     <span>{item.value}</span>
                   </span>
                 ))}
+                {aggregateItems.length === 0 ? (
+                  <span className="tanstack-grid__aggregation-empty">No numeric columns available</span>
+                ) : null}
               </div>
             </div>
           </>
         ) : null}
 
         <div
-          className={`tanstack-grid__table-wrap tanstack-grid__table-wrap--${rowDensity}`}
+          {...resolvedTableWrapperProps}
+          className={mergeClassNames(
+            `tanstack-grid__table-wrap tanstack-grid__table-wrap--${rowDensity}`,
+            tableWrapperClassName,
+          )}
           ref={tableWrapRef}
           style={{
             '--tanstack-cell-padding-y': rowDensityConfig.cellPaddingY,
             '--tanstack-editor-gap': rowDensityConfig.editorGap,
             '--tanstack-editor-height': rowDensityConfig.editorHeight,
             '--tanstack-row-height': `${rowDensityConfig.rowHeight}px`,
+            ...tableWrapperStyle,
           }}
         >
-          <table className="tanstack-grid__table" style={{ width: table.getTotalSize() }}>
+          <table
+            {...resolvedTableProps}
+            className={mergeClassNames('tanstack-grid__table', tableClassName)}
+            style={{ width: table.getTotalSize(), ...tableStyle }}
+          >
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
@@ -1973,13 +2417,35 @@ export function TanStackTablePreview({
                       columnId: header.column.id,
                       target: 'header',
                     });
+                    const headerExtraProps = getResolvedProps(getHeaderProps, { header, table });
+                    const {
+                      className: headerClassName,
+                      onContextMenu: onHeaderContextMenu,
+                      style: headerStyle,
+                      ...headerRestProps
+                    } = headerExtraProps;
 
                     return (
                       <th
-                        className={getPresentationClassName('header', headerPresentationRule)}
+                        {...headerRestProps}
+                        className={mergeClassNames(
+                          getPresentationClassName('header', headerPresentationRule),
+                          headerClassName,
+                        )}
+                        data-column-id={header.column.id}
                         key={header.id}
-                        onContextMenu={(event) => openHeaderContextMenu(event, header)}
-                        style={{ width: header.getSize(), ...getPresentationStyle(headerPresentationRule) }}
+                        onContextMenu={(event) => {
+                          callOptionalHandler(onHeaderContextMenu, event, { header, table });
+
+                          if (!event.defaultPrevented) {
+                            openHeaderContextMenu(event, header);
+                          }
+                        }}
+                        style={{
+                          width: header.getSize(),
+                          ...getPresentationStyle(headerPresentationRule),
+                          ...headerStyle,
+                        }}
                         title={getPresentationTooltip(headerPresentationRule)}
                       >
                         {header.isPlaceholder ? null : canSort ? (
@@ -2009,18 +2475,32 @@ export function TanStackTablePreview({
                     row,
                     target: 'row',
                   });
+                  const rowExtraProps = getResolvedProps(getRowProps, { row, table });
+                  const {
+                    className: rowClassName,
+                    onDoubleClick: onRowDoubleClickProp,
+                    style: rowStyle,
+                    ...rowRestProps
+                  } = rowExtraProps;
 
                   return (
                     <tr
-                      className={[
+                      {...rowRestProps}
+                      className={mergeClassNames(
                         row.getIsSelected() ? 'tanstack-grid__row--selected' : '',
                         lastDoubleClickedRow?.id === row.original.id ? 'tanstack-grid__row--active' : '',
                         getPresentationClassName('row', rowPresentationRule),
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
+                        rowClassName,
+                      )}
                       key={row.id}
-                      onDoubleClick={() => setLastDoubleClickedRow(row.original)}
+                      onDoubleClick={(event) => {
+                        callOptionalHandler(onRowDoubleClickProp, event, { row, table });
+
+                        if (!event.defaultPrevented) {
+                          activateRow(row, event);
+                        }
+                      }}
+                      style={rowStyle}
                       title={getPresentationTooltip(rowPresentationRule)}
                     >
                       {row.getVisibleCells().map((cell) => {
@@ -2031,16 +2511,34 @@ export function TanStackTablePreview({
                         });
                         const rawCellValue = getCellValue(row, cell.column.id);
                         const renderedCellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
+                        const cellExtraProps = getResolvedProps(getCellProps, { cell, row, table });
+                        const {
+                          className: cellClassName,
+                          onContextMenu: onCellContextMenu,
+                          style: cellStyle,
+                          ...cellRestProps
+                        } = cellExtraProps;
 
                         return (
                           <td
-                            className={getPresentationClassName('cell', cellPresentationRule)}
+                            {...cellRestProps}
+                            className={mergeClassNames(
+                              getPresentationClassName('cell', cellPresentationRule),
+                              cellClassName,
+                            )}
                             key={cell.id}
-                            onContextMenu={(event) => openCellContextMenu(event, cell, row)}
+                            onContextMenu={(event) => {
+                              callOptionalHandler(onCellContextMenu, event, { cell, row, table });
+
+                              if (!event.defaultPrevented) {
+                                openCellContextMenu(event, cell, row);
+                              }
+                            }}
                             style={{
                               width: cell.column.getSize(),
                               ...getPresentationStyle(rowPresentationRule),
                               ...getPresentationStyle(cellPresentationRule),
+                              ...cellStyle,
                             }}
                             title={getPresentationTooltip(cellPresentationRule) ?? getPresentationTooltip(rowPresentationRule)}
                           >
@@ -2131,4 +2629,12 @@ export function TanStackTablePreview({
       />
     </div>
   );
-}
+});
+
+export const TanStackTablePreview = forwardRef(function TanStackTablePreview(props, ref) {
+  return (
+    <TanStackTableErrorBoundary onError={props?.onError}>
+      <TanStackTablePreviewContent {...props} ref={ref} />
+    </TanStackTableErrorBoundary>
+  );
+});

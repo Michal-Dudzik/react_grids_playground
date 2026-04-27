@@ -569,10 +569,23 @@ select {
 }
 
 .tanstack-grid__surface {
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--surface-strong);
+}
+
+.tanstack-grid__loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--surface-strong) 78%, transparent);
+  color: var(--text-muted);
+  font-weight: 700;
+  pointer-events: none;
 }
 
 .tanstack-grid__inline-panel {
@@ -849,6 +862,11 @@ select {
   color: var(--text);
 }
 
+.tanstack-grid__aggregation-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .tanstack-grid__context-menu {
   position: fixed;
   z-index: 2000;
@@ -976,7 +994,8 @@ select {
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 22px;
-  background: linear-gradient(180deg, #fffdfb 0%, var(--surface-muted) 100%);
+  background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-muted) 100%);
+  color: var(--text);
 }
 
 .shared-grid-footer--attached {
@@ -1045,11 +1064,56 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-muted);
+}
+
+.shared-grid-footer .ant-btn-text:not(:disabled):hover,
+.shared-grid-footer .ant-btn-text:not(:disabled):focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.shared-grid-footer .ant-btn .anticon {
+  color: currentColor;
 }
 
 .shared-grid-footer__actions .ant-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
+  color: #fff5ee;
+}
+
+.shared-grid-footer__actions .ant-btn-primary:not(:disabled):hover,
+.shared-grid-footer__actions .ant-btn-primary:not(:disabled):focus-visible {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #fff5ee;
+}
+
+.shared-grid-footer .ant-select .ant-select-selector,
+.shared-grid-footer .ant-pagination .ant-pagination-simple-pager input,
+.shared-grid-search .ant-input,
+.shared-grid-search .ant-input-affix-wrapper,
+.shared-grid-search .ant-input-group-addon {
+  border-color: var(--border);
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.shared-grid-footer .ant-select-arrow,
+.shared-grid-footer .ant-pagination,
+.shared-grid-footer .ant-pagination .ant-pagination-item-link,
+.shared-grid-search .ant-input::placeholder,
+.shared-grid-search .ant-input-clear-icon {
+  color: var(--text-muted);
+}
+
+.shared-grid-footer .ant-select-selection-item {
+  color: var(--text);
+}
+
+.shared-grid-footer .ant-pagination .ant-pagination-simple-pager input {
+  color: var(--text);
 }
 
 .shared-grid-columns {
@@ -1064,7 +1128,7 @@ select {
 .shared-grid-summary-bar {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, #fffefc 0%, var(--surface-muted) 100%);
+  background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-muted) 100%);
 }
 
 .shared-grid-summary-bar__tag {

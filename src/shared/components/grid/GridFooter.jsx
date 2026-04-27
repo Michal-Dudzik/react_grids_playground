@@ -3,7 +3,9 @@ import { GridSearchBar } from './GridSearchBar';
 
 function GridFooterAction({ action }) {
   if (action.isCustomComponent && action.component) {
-    return <div className="shared-grid-footer__custom-action">{action.component}</div>;
+    const customAction = <div className="shared-grid-footer__custom-action">{action.component}</div>;
+
+    return action.title ? <Tooltip title={action.title}>{customAction}</Tooltip> : customAction;
   }
 
   const hasIcon = action.icon !== undefined && action.icon !== null;

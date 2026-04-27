@@ -45,17 +45,17 @@ export function buildGridFooterButtons({
       onClick: onToggleSummary,
       title: summaryVisible ? 'Hide summary' : 'Show summary',
     },
-    showPrint && {
-      key: 'print',
-      icon: <PrinterOutlined />,
-      onClick: onPrint,
-      title: 'Print',
-    },
     showExportPdf && {
       key: 'export-pdf',
       icon: <FilePdfOutlined />,
       onClick: onExportPdf,
       title: 'Export PDF',
+    },
+    showPrint && {
+      key: 'print',
+      icon: <PrinterOutlined />,
+      onClick: onPrint,
+      title: 'Print',
     },
     showExportExcel && {
       key: 'export-excel',
@@ -79,8 +79,11 @@ export function buildGridFooterButtons({
     },
   ].filter(Boolean);
 
+  const customButtonsByKey = new Map(footerButtons.map((customButton) => [customButton.key, customButton]));
+  const defaultButtonKeys = new Set(defaults.map((defaultButton) => defaultButton.key));
+
   return [
-    ...defaults.filter((defaultButton) => !footerButtons.some((customButton) => customButton.key === defaultButton.key)),
-    ...footerButtons,
+    ...defaults.map((defaultButton) => customButtonsByKey.get(defaultButton.key) ?? defaultButton),
+    ...footerButtons.filter((customButton) => !defaultButtonKeys.has(customButton.key)),
   ];
 }
