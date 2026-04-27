@@ -21,7 +21,32 @@ import { buildGridFooterButtons } from '../../../shared/components/grid/buildGri
 const initialRows = getDemoRows();
 const exportableFieldIds = ['id', 'owner', 'region', 'status', 'revenue', 'updatedAt'];
 const tableColumnStateKey = 'tanstack-table-preview-column-state-v1';
+const tableFilterStateKey = 'tanstack-table-preview-filter-state-v1';
 const presentationRulesStateKey = 'tanstack-table-preview-presentation-rules-v1';
+const pageSizeChoices = [3, 5, 8];
+const rowDensityConfigs = {
+  compact: {
+    cellPaddingY: '8px',
+    editorGap: '4px',
+    editorHeight: '30px',
+    label: 'Compact',
+    rowHeight: 44,
+  },
+  standard: {
+    cellPaddingY: '12px',
+    editorGap: '8px',
+    editorHeight: '34px',
+    label: 'Standard',
+    rowHeight: 58,
+  },
+  comfortable: {
+    cellPaddingY: '16px',
+    editorGap: '10px',
+    editorHeight: '38px',
+    label: 'Comfortable',
+    rowHeight: 72,
+  },
+};
 const defaultPresentationRules = [
   {
     id: 'default-live-row',
@@ -159,6 +184,24 @@ const defaultColumnSizing = {
   select: 72,
   ...Object.fromEntries(baseColumns.map((column) => [column.accessorKey, column.size])),
 };
+const baseColumnById = new Map(baseColumns.map((column) => [column.accessorKey, column]));
+
+function buildColumnSettingsState({
+  columnOrder = defaultColumnOrder,
+  columnSizing = defaultColumnSizing,
+  columnVisibility = {},
+} = {}) {
+  return {
+    columnOrder: normalizeColumnOrder(columnOrder),
+    columnSizing: {
+      ...defaultColumnSizing,
+      ...(columnSizing ?? {}),
+    },
+    columnVisibility: {
+      ...(columnVisibility ?? {}),
+    },
+  };
+}
 
 function normalizeColumnOrder(columnOrder) {
   const validColumnIds = new Set(defaultColumnOrder);
@@ -190,6 +233,93 @@ function writeColumnState(columnState) {
   }
 
   window.localStorage.setItem(tableColumnStateKey, JSON.stringify(columnState));
+}
+
+function buildGridColumnsPreferenceEndpoint({ appId, gridId }) {
+  return `/api/SysUserInfo/gridColumnsByUser?appId=${encodeURIComponent(appId)}&gridId=${encodeURIComponent(gridId)}`;
+}
+
+function buildColumnPreferencesPayload(columnSettings) {
+  const normalizedSettings = buildColumnSettingsState(columnSettings);
+
+  return normalizedSettings.columnOrder
+    .filter((columnId) => columnId !== 'select')
+    .map((columnId, index) => {
+      const baseColumn = baseColumnById.get(columnId);
+      const headerText =
+        typeof baseColumn?.header === 'string' ? baseColumn.header : baseColumn?.accessorKey ?? columnId;
+
+      return {
+        alias: columnId,
+        field: columnId,
+        headerText,
+        orderID: index + 1,
+        visible: normalizedSettings.columnVisibility[columnId] !== false,
+        width: normalizedSettings.columnSizing[columnId] ?? baseColumn?.size ?? 120,
+      };
+    });
+}
+
+async function saveColumnPreferencesToApi({ appId, gridId, payload, request = fetch }) {
+  if (!appId || !gridId) {
+    return { success: true, skipped: true, reason: 'missing-grid-identifiers' };
+  }
+
+  const response = await request(buildGridColumnsPreferenceEndpoint({ appId, gridId }), {
+    body: JSON.stringify(payload),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method: 'PUT',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save column preferences (${response.status})`);
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+
+  return contentType.includes('application/json') ? response.json() : { success: true };
+}
+
+function normalizeFilterState(filterState) {
+  const validColumnIds = new Set(defaultColumnOrder);
+  const columnFilters = Array.isArray(filterState?.columnFilters)
+    ? filterState.columnFilters
+        .filter((filter) => validColumnIds.has(filter?.id) && filter.id !== 'select')
+        .map((filter) => ({
+          id: filter.id,
+          value: String(filter.value ?? ''),
+        }))
+        .filter((filter) => filter.value.trim())
+    : [];
+  const globalFilter = String(filterState?.globalFilter ?? '').trim();
+
+  return {
+    columnFilters,
+    globalFilter,
+    showFilters: Boolean(filterState?.showFilters) || columnFilters.length > 0,
+  };
+}
+
+function readFilterState() {
+  if (typeof window === 'undefined') {
+    return normalizeFilterState();
+  }
+
+  try {
+    return normalizeFilterState(JSON.parse(window.localStorage.getItem(tableFilterStateKey) ?? '{}'));
+  } catch {
+    return normalizeFilterState();
+  }
+}
+
+function writeFilterState(filterState) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(tableFilterStateKey, JSON.stringify(normalizeFilterState(filterState)));
 }
 
 function cloneDefaultPresentationRules() {
@@ -379,8 +509,9 @@ function isTruthyDisplayValue(value) {
 }
 
 function reorderItems(items, activeId, overId) {
-  const activeIndex = items.findIndex((item) => item.id === activeId);
-  const overIndex = items.findIndex((item) => item.id === overId);
+  const getItemId = (item) => (typeof item === 'string' ? item : item.id);
+  const activeIndex = items.findIndex((item) => getItemId(item) === activeId);
+  const overIndex = items.findIndex((item) => getItemId(item) === overId);
 
   if (activeIndex === -1 || overIndex === -1 || activeIndex === overIndex) {
     return items;
@@ -769,37 +900,42 @@ function EditableCell({ column, getValue, renderPreview, row, searchTerm, table 
   );
 }
 
-export function TanStackTablePreview() {
+export function TanStackTablePreview({
+  appId,
+  gridId,
+  onSaveColumnPreferences = saveColumnPreferencesToApi,
+} = {}) {
   const persistedColumnState = useMemo(readColumnState, []);
+  const persistedFilterState = useMemo(readFilterState, []);
+  const initialColumnSettings = useMemo(() => buildColumnSettingsState(persistedColumnState), [persistedColumnState]);
+  const tableWrapRef = useRef(null);
   const [tableData, setTableData] = useState(() => initialRows);
   const [sorting, setSorting] = useState([]);
-  const [columnFilters, setColumnFilters] = useState([]);
-  const [globalFilterDraft, setGlobalFilterDraft] = useState('');
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [columnFilters, setColumnFilters] = useState(() => persistedFilterState.columnFilters);
+  const [globalFilterDraft, setGlobalFilterDraft] = useState(() => persistedFilterState.globalFilter);
+  const [globalFilter, setGlobalFilter] = useState(() => persistedFilterState.globalFilter);
   const [rowSelection, setRowSelection] = useState({});
   const [selectionMode, setSelectionMode] = useState('multi');
   const [selectedRowsReport, setSelectedRowsReport] = useState([]);
-  const [columnOrder, setColumnOrder] = useState(() =>
-    normalizeColumnOrder(persistedColumnState.columnOrder),
-  );
-  const [columnSizing, setColumnSizing] = useState(() => ({
-    ...defaultColumnSizing,
-    ...(persistedColumnState.columnSizing ?? {}),
-  }));
-  const [columnVisibility, setColumnVisibility] = useState(
-    () => persistedColumnState.columnVisibility ?? {},
-  );
+  const [columnOrder, setColumnOrder] = useState(() => initialColumnSettings.columnOrder);
+  const [columnSizing, setColumnSizing] = useState(() => initialColumnSettings.columnSizing);
+  const [columnVisibility, setColumnVisibility] = useState(() => initialColumnSettings.columnVisibility);
+  const [columnSettingsDraft, setColumnSettingsDraft] = useState(() => initialColumnSettings);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 5,
   });
   const [showAllRows, setShowAllRows] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [autoPageSize, setAutoPageSize] = useState(false);
+  const [rowDensity, setRowDensity] = useState('standard');
+  const [showFilters, setShowFilters] = useState(() => persistedFilterState.showFilters);
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState('page');
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [columnsModalOpen, setColumnsModalOpen] = useState(false);
+  const [columnSettingsSaving, setColumnSettingsSaving] = useState(false);
+  const [columnSettingsError, setColumnSettingsError] = useState('');
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [presentationRules, setPresentationRules] = useState(readPresentationRules);
 
@@ -818,6 +954,14 @@ export function TanStackTablePreview() {
   useEffect(() => {
     writePresentationRules(presentationRules);
   }, [presentationRules]);
+
+  useEffect(() => {
+    writeFilterState({
+      columnFilters,
+      globalFilter,
+      showFilters,
+    });
+  }, [columnFilters, globalFilter, showFilters]);
 
   useEffect(() => {
     setPagination((current) =>
@@ -966,6 +1110,66 @@ export function TanStackTablePreview() {
     .filter((column) => exportableFieldIds.includes(column.id));
   const activeColumnFilters = columnFilters.filter((filter) => String(filter.value ?? '').trim()).length;
   const activePresentationRules = presentationRules.filter((rule) => rule.enabled).length;
+  const rowDensityConfig = rowDensityConfigs[rowDensity] ?? rowDensityConfigs.standard;
+  const pageSizeOptions = useMemo(
+    () =>
+      pageSizeChoices.includes(pagination.pageSize)
+        ? pageSizeChoices
+        : [...pageSizeChoices, pagination.pageSize].sort((first, second) => first - second),
+    [pagination.pageSize],
+  );
+
+  useEffect(() => {
+    if (!autoPageSize || showAllRows) {
+      return undefined;
+    }
+
+    const tableWrapElement = tableWrapRef.current;
+
+    if (!tableWrapElement) {
+      return undefined;
+    }
+
+    function updateAutoPageSize() {
+      const headerHeight =
+        tableWrapElement.querySelector('thead')?.getBoundingClientRect().height ?? rowDensityConfig.rowHeight;
+      const tableTop = tableWrapElement.getBoundingClientRect().top;
+      const reservedFooterHeight = 148;
+      const availableTableHeight = Math.max(
+        rowDensityConfig.rowHeight * 2,
+        window.innerHeight - tableTop - reservedFooterHeight,
+      );
+      const nextPageSize = Math.max(
+        1,
+        Math.min(
+          Math.max(matchingRows.length, 1),
+          Math.floor((availableTableHeight - headerHeight) / rowDensityConfig.rowHeight),
+        ),
+      );
+
+      setPagination((current) =>
+        current.pageSize === nextPageSize && current.pageIndex === 0
+          ? current
+          : {
+              ...current,
+              pageIndex: 0,
+              pageSize: nextPageSize,
+            },
+      );
+    }
+
+    updateAutoPageSize();
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateAutoPageSize);
+    resizeObserver?.observe(tableWrapElement);
+    window.addEventListener('resize', updateAutoPageSize);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateAutoPageSize);
+    };
+  }, [autoPageSize, matchingRows.length, rowDensityConfig.rowHeight, showAllRows]);
 
   useEffect(() => {
     setSelectedRowsReport(table.getSelectedRowModel().rows.map((row) => row.original.id));
@@ -1044,6 +1248,41 @@ export function TanStackTablePreview() {
     });
   }
 
+  function moveDraftColumn(columnId, direction) {
+    setColumnSettingsDraft((currentDraft) => {
+      const normalizedOrder = normalizeColumnOrder(currentDraft.columnOrder);
+      const movableColumnIds = normalizedOrder.filter((id) => id !== 'select');
+      const columnIndex = movableColumnIds.indexOf(columnId);
+      const nextIndex = columnIndex + direction;
+
+      if (columnIndex === -1 || nextIndex < 0 || nextIndex >= movableColumnIds.length) {
+        return currentDraft;
+      }
+
+      const nextOrder = [...movableColumnIds];
+      [nextOrder[columnIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[columnIndex]];
+
+      return {
+        ...currentDraft,
+        columnOrder: ['select', ...nextOrder],
+      };
+    });
+  }
+
+  function reorderColumnSettings(activeColumnId, overColumnId) {
+    setColumnSettingsDraft((currentDraft) => ({
+      ...currentDraft,
+      columnOrder: [
+        'select',
+        ...reorderItems(
+          normalizeColumnOrder(currentDraft.columnOrder).filter((columnId) => columnId !== 'select'),
+          activeColumnId,
+          overColumnId,
+        ),
+      ],
+    }));
+  }
+
   function updateColumnWidth(columnId, width) {
     const numericWidth = Number(width);
 
@@ -1057,10 +1296,80 @@ export function TanStackTablePreview() {
     }));
   }
 
+  function updateDraftColumnWidth(columnId, width) {
+    const numericWidth = Number(width);
+
+    if (!Number.isFinite(numericWidth)) {
+      return;
+    }
+
+    setColumnSettingsDraft((currentDraft) => ({
+      ...currentDraft,
+      columnSizing: {
+        ...currentDraft.columnSizing,
+        [columnId]: Math.max(80, numericWidth),
+      },
+    }));
+  }
+
   function resetColumnSettings() {
     setColumnOrder(defaultColumnOrder);
     setColumnSizing(defaultColumnSizing);
     setColumnVisibility({});
+  }
+
+  function resetColumnSettingsDraft() {
+    setColumnSettingsError('');
+    setColumnSettingsDraft(buildColumnSettingsState());
+  }
+
+  function openColumnSettingsModal() {
+    setColumnSettingsDraft(
+      buildColumnSettingsState({
+        columnOrder,
+        columnSizing,
+        columnVisibility,
+      }),
+    );
+    setColumnSettingsError('');
+    setColumnsModalOpen(true);
+  }
+
+  function cancelColumnSettings() {
+    setColumnSettingsDraft(
+      buildColumnSettingsState({
+        columnOrder,
+        columnSizing,
+        columnVisibility,
+      }),
+    );
+    setColumnSettingsError('');
+    setColumnsModalOpen(false);
+  }
+
+  async function saveColumnSettings() {
+    const nextColumnSettings = buildColumnSettingsState(columnSettingsDraft);
+    const columnPreferencesPayload = buildColumnPreferencesPayload(nextColumnSettings);
+
+    setColumnSettingsSaving(true);
+    setColumnSettingsError('');
+
+    try {
+      await onSaveColumnPreferences({
+        appId,
+        gridId,
+        payload: columnPreferencesPayload,
+      });
+
+      setColumnOrder(nextColumnSettings.columnOrder);
+      setColumnSizing(nextColumnSettings.columnSizing);
+      setColumnVisibility(nextColumnSettings.columnVisibility);
+      setColumnsModalOpen(false);
+    } catch (error) {
+      setColumnSettingsError(error?.message || 'Failed to save column preferences.');
+    } finally {
+      setColumnSettingsSaving(false);
+    }
   }
 
   function addPresentationRule() {
@@ -1267,12 +1576,12 @@ export function TanStackTablePreview() {
         ],
       },
       {
-        key: 'open-column-settings',
-        label: 'Open column settings',
-        onSelect: () => setColumnsModalOpen(true),
-      },
-    ];
-  }
+      key: 'open-column-settings',
+      label: 'Open column settings',
+      onSelect: openColumnSettingsModal,
+    },
+  ];
+}
 
   function buildCellContextMenuItems(menuState) {
     const column = table.getColumn(menuState.columnId);
@@ -1390,21 +1699,38 @@ export function TanStackTablePreview() {
 
   const orderedDataColumnIds = normalizeColumnOrder(columnOrder).filter((columnId) => columnId !== 'select');
   const columnOptions = orderedDataColumnIds
-    .map((columnId, index) => table.getColumn(columnId))
+    .map((columnId) => table.getColumn(columnId))
+    .filter(Boolean)
+    .map((column) => ({
+      key: column.id,
+      label: typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id,
+    }));
+  const draftDataColumnIds = normalizeColumnOrder(columnSettingsDraft.columnOrder).filter(
+    (columnId) => columnId !== 'select',
+  );
+  const columnSettingsOptions = draftDataColumnIds
+    .map((columnId) => table.getColumn(columnId))
     .filter(Boolean)
     .map((column, index) => ({
       key: column.id,
       label: typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id,
-      checked: column.getIsVisible(),
-      canMoveDown: index < orderedDataColumnIds.length - 1,
+      checked: columnSettingsDraft.columnVisibility[column.id] !== false,
+      canMoveDown: index < draftDataColumnIds.length - 1,
       canMoveUp: index > 0,
       disabled: !column.getCanHide(),
       minWidth: 80,
-      onChange: (checked) => column.toggleVisibility(checked),
-      onMoveDown: () => moveColumn(column.id, 1),
-      onMoveUp: () => moveColumn(column.id, -1),
-      onWidthChange: (width) => updateColumnWidth(column.id, width),
-      width: columnSizing[column.id] ?? column.getSize(),
+      onChange: (checked) =>
+        setColumnSettingsDraft((currentDraft) => ({
+          ...currentDraft,
+          columnVisibility: {
+            ...currentDraft.columnVisibility,
+            [column.id]: checked,
+          },
+        })),
+      onMoveDown: () => moveDraftColumn(column.id, 1),
+      onMoveUp: () => moveDraftColumn(column.id, -1),
+      onWidthChange: (width) => updateDraftColumnWidth(column.id, width),
+      width: columnSettingsDraft.columnSizing[column.id] ?? column.getSize(),
     }));
 
   const summaryItems = [
@@ -1416,6 +1742,8 @@ export function TanStackTablePreview() {
     { label: 'Search', value: globalFilter || 'none' },
     { label: 'Column filters', value: activeColumnFilters || 'none' },
     { label: 'Presentation rules', value: activePresentationRules || 'none' },
+    { label: 'Density', value: rowDensityConfig.label },
+    { label: 'Auto page size', value: autoPageSize ? `${pagination.pageSize} rows` : 'off' },
   ];
 
   const printMenuItems = [
@@ -1439,7 +1767,7 @@ export function TanStackTablePreview() {
 
   const footerButtons = buildGridFooterButtons({
     filtering: showFilters,
-    onColumnsSettings: () => setColumnsModalOpen(true),
+    onColumnsSettings: openColumnSettingsModal,
     onExportExcel: exportFilteredRows,
     onExportPdf: exportPdfView,
     onPresentationSettings: () => setTemplateEditorOpen(true),
@@ -1494,7 +1822,7 @@ export function TanStackTablePreview() {
           <label className="tanstack-grid__field">
             <span>Page size</span>
             <select
-              disabled={showAllRows}
+              disabled={showAllRows || autoPageSize}
               onChange={(event) =>
                 setPagination((current) => ({
                   ...current,
@@ -1504,9 +1832,20 @@ export function TanStackTablePreview() {
               }
               value={pagination.pageSize}
             >
-              {[3, 5, 8].map((pageSize) => (
+              {pageSizeOptions.map((pageSize) => (
                 <option key={pageSize} value={pageSize}>
                   {pageSize} rows
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="tanstack-grid__field">
+            <span>Density</span>
+            <select onChange={(event) => setRowDensity(event.target.value)} value={rowDensity}>
+              {Object.entries(rowDensityConfigs).map(([densityKey, densityConfig]) => (
+                <option key={densityKey} value={densityKey}>
+                  {densityConfig.label}
                 </option>
               ))}
             </select>
@@ -1519,6 +1858,16 @@ export function TanStackTablePreview() {
               type="checkbox"
             />
             <span>Show all filtered rows</span>
+          </label>
+
+          <label className="tanstack-grid__toggle">
+            <input
+              checked={autoPageSize}
+              disabled={showAllRows}
+              onChange={(event) => setAutoPageSize(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Auto page size</span>
           </label>
         </div>
       </div>
@@ -1603,7 +1952,16 @@ export function TanStackTablePreview() {
           </>
         ) : null}
 
-        <div className="tanstack-grid__table-wrap">
+        <div
+          className={`tanstack-grid__table-wrap tanstack-grid__table-wrap--${rowDensity}`}
+          ref={tableWrapRef}
+          style={{
+            '--tanstack-cell-padding-y': rowDensityConfig.cellPaddingY,
+            '--tanstack-editor-gap': rowDensityConfig.editorGap,
+            '--tanstack-editor-height': rowDensityConfig.editorHeight,
+            '--tanstack-row-height': `${rowDensityConfig.rowHeight}px`,
+          }}
+        >
           <table className="tanstack-grid__table" style={{ width: table.getTotalSize() }}>
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -1726,7 +2084,8 @@ export function TanStackTablePreview() {
           }
           onPreviousPage={() => table.previousPage()}
           pageSize={pagination.pageSize}
-          pageSizeOptions={[3, 5, 8]}
+          pageSizeDisabled={autoPageSize}
+          pageSizeOptions={pageSizeOptions}
           searchProps={{
             inputValue: globalFilterDraft,
             onInputChange: setGlobalFilterDraft,
@@ -1741,10 +2100,14 @@ export function TanStackTablePreview() {
       </div>
 
       <GridColumnsModal
-        columns={columnOptions}
+        columns={columnSettingsOptions}
         description="Choose visibility, order, and fixed widths for the TanStack columns. Settings persist in local storage for this preview."
-        onClose={() => setColumnsModalOpen(false)}
-        onReset={resetColumnSettings}
+        error={columnSettingsError}
+        isSaving={columnSettingsSaving}
+        onClose={cancelColumnSettings}
+        onReorderColumns={reorderColumnSettings}
+        onReset={resetColumnSettingsDraft}
+        onSave={saveColumnSettings}
         open={columnsModalOpen}
       />
 

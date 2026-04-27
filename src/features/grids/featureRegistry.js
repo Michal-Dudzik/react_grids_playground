@@ -16,7 +16,7 @@ export const gridFeatures = [
     ...tanStackTableFeature,
     checklist: buildGridChecklist({
       summary:
-        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, inline column filters, client-side paging, search highlighting, local column visibility/order/width controls, resettable column settings, summary metrics, local presentation/decorator rules, revenue aggregation, targeted header/cell context menus, CSV export, and browser-based print/PDF flows. API-backed columns, API persistence, template presentation rules, localization, dynamic hide/show context rules, and imperative wrapper refs still require custom wrapper code.',
+        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, persisted inline column filters, client-side paging with density and auto page sizing, search highlighting, local column visibility/order/width controls with drag reorder, resettable column settings, API-ready personal column preference saves, summary metrics, local presentation/decorator rules, revenue aggregation, targeted header/cell context menus, CSV export, and browser-based print/PDF flows. API-backed column loading, template presentation rules, localization, dynamic hide/show context rules, and imperative wrapper refs still require custom wrapper code.',
       supported: [
         'core-local-columns',
         'core-sorting',
@@ -33,9 +33,16 @@ export const gridFeatures = [
         'paging-client-side',
         'paging-page-sizes',
         'paging-disable-show-all',
+        'paging-auto-page-size',
+        'paging-row-height',
+        'paging-compact-mode',
         'columns-local-mode',
+        'columns-persist-order',
+        'columns-persist-visibility',
+        'columns-persist-width',
         'columns-reset-defaults',
         'columns-settings-modal',
+        'columns-settings-reorder',
         'columns-settings-width-edit',
         'columns-settings-visibility',
         'templates-search-highlight',
@@ -87,6 +94,7 @@ export const gridFeatures = [
         'footer-custom-buttons',
         'footer-custom-components',
         'footer-selection-count',
+        'ux-filter-state-key',
         'ux-presentation-state-key',
       ],
       notes: buildGroupedNotes([
@@ -104,12 +112,12 @@ export const gridFeatures = [
           ['search-highlight', 'templates-search-highlight'],
         ],
         [
-          'Client-side pagination uses TanStack pagination state, and the preview can bypass pagination to show every filtered row.',
-          ['paging-client-side', 'paging-page-sizes', 'paging-disable-show-all'],
+          'Client-side pagination uses TanStack pagination state. The preview can bypass pagination, switch row density, and auto-calculate page size from the available viewport height.',
+          ['paging-client-side', 'paging-page-sizes', 'paging-disable-show-all', 'paging-auto-page-size', 'paging-row-height', 'paging-compact-mode'],
         ],
         [
-          'The shared column modal now drives TanStack column visibility, fixed column widths, reset-to-default behavior, and local-storage state for this preview.',
-          ['columns-settings-modal', 'columns-settings-visibility', 'columns-settings-width-edit', 'columns-reset-defaults'],
+          'The shared column modal now drives TanStack column visibility, drag-and-drop order, fixed column widths, reset-to-default behavior, and local-storage state for this preview.',
+          ['columns-settings-modal', 'columns-settings-reorder', 'columns-settings-visibility', 'columns-settings-width-edit', 'columns-reset-defaults'],
         ],
         ['Status cells render through a custom React component.', ['templates-custom-react', 'templates-status-rendering']],
         [
@@ -125,11 +133,11 @@ export const gridFeatures = [
           ['footer-shared-footer', 'footer-paging-controls', 'footer-custom-buttons', 'footer-custom-components'],
         ],
         [
-          'Column visibility, width editing, local ordering, and reset are exposed through the shared footer action. API persistence and drag-and-drop ordering are still wrapper work.',
+          'Column visibility, width editing, ordering, reset, and an API-ready preference save payload are exposed through the shared footer action.',
           ['footer-column-settings'],
         ],
         [
-          'TanStack now has a shared footer filter toggle plus inline per-column filter controls, but the Syncfusion-style Excel menu UI and persisted filter keys are still wrapper work.',
+          'TanStack now has a shared footer filter toggle plus inline per-column filter controls persisted under the preview grid key. The Syncfusion-style Excel menu UI is still wrapper work.',
           ['core-excel-filter-ui', 'footer-filter-toggle', 'ux-filter-state-key'],
         ],
         [
@@ -153,11 +161,11 @@ export const gridFeatures = [
           ['core-forward-grid-props', 'ux-ref-grid-instance', 'ux-ref-processed-columns', 'ux-ref-print-methods'],
         ],
         [
-          'Auto page sizing, row density, row height, and the shared footer pager depend on custom layout and styling wrappers.',
+          'Auto page sizing, row density, row height, and the shared footer pager are implemented with custom wrapper layout around TanStack state.',
           ['paging-auto-page-size', 'paging-row-height', 'paging-compact-mode', 'footer-paging-controls'],
         ],
         [
-          'TanStack column order, visibility, and sizing primitives are wired into the modal for this preview, including local-storage persistence. API persistence, drag-and-drop reorder, and DOM width sync remain wrapper responsibilities.',
+          'TanStack column order, visibility, sizing, drag reorder, and reset primitives are wired into the modal for this preview. Save builds the same full ordered preference payload Syncfusion posts and can PUT it to /api/SysUserInfo/gridColumnsByUser when appId and gridId are supplied. DOM width sync remains wrapper work.',
           [
             'columns-persist-order',
             'columns-persist-visibility',

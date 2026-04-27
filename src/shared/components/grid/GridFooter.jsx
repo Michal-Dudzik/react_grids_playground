@@ -34,6 +34,7 @@ export function GridFooter({
   onPreviousPage,
   onNextPage,
   onPageSizeChange,
+  pageSizeDisabled = false,
   searchProps,
   buttons = [],
   hidePageCount = false,
@@ -80,6 +81,7 @@ export function GridFooter({
           <label className="shared-grid-footer__page-size" htmlFor="shared-grid-footer-page-size">
             <span>Rows</span>
             <Select
+              disabled={pageSizeDisabled}
               id="shared-grid-footer-page-size"
               onChange={(value) => onPageSizeChange?.(value)}
               options={pageSizeOptions.map((size) => ({
