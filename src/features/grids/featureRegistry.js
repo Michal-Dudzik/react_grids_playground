@@ -16,10 +16,11 @@ export const gridFeatures = [
     ...tanStackTableFeature,
     checklist: buildGridChecklist({
       summary:
-        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, persisted inline column filters, client-side paging with density and auto page sizing, search highlighting, local column visibility/order/width controls with drag reorder and DOM width sync, resettable column settings, API-ready personal column preference saves, summary metrics, generic aggregation, local presentation/decorator rules, configurable header/cell context menus, CSV export, measured-width print/PDF flows, loading/error shell behavior, forwarded DOM prop hooks, and imperative wrapper refs. API-backed column loading, template presentation rules, locale-sensitive column loading, and aggregate width/scroll sync still require custom wrapper code.',
+        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, Excel-style per-column filter menus with persisted state, client-side paging with density and auto page sizing, search highlighting, local column visibility/order/width controls with drag reorder and DOM width sync, resettable column settings, API-ready personal column preference saves, summary metrics, generic aggregation, local presentation/decorator rules, configurable header/cell context menus, CSV export, measured-width print/PDF flows, loading/error shell behavior, forwarded DOM prop hooks, and imperative wrapper refs. API-backed column loading, template presentation rules, locale-sensitive column loading, and aggregate width/scroll sync still require custom wrapper code.',
       supported: [
         'core-local-columns',
         'core-sorting',
+        'core-excel-filter-ui',
         'core-row-selection',
         'core-checkbox-selection',
         'core-selection-modes',
@@ -154,7 +155,7 @@ export const gridFeatures = [
           ['footer-column-settings'],
         ],
         [
-          'TanStack now has a shared footer filter toggle plus inline per-column filter controls persisted under the preview grid key. The Syncfusion-style Excel menu UI is still wrapper work.',
+          'TanStack now has a shared footer filter toggle plus Excel-style per-column menus with value search, select-all checklists, text/number operators, context-menu filter-by-value support, and persisted state under the preview grid key.',
           ['core-excel-filter-ui', 'footer-filter-toggle', 'ux-filter-state-key'],
         ],
         [
