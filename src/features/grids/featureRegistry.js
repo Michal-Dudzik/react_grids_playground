@@ -16,9 +16,10 @@ export const gridFeatures = [
     ...tanStackTableFeature,
     checklist: buildGridChecklist({
       summary:
-        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, Excel-style per-column filter menus with persisted state, client-side paging with density and auto page sizing, search highlighting, local column visibility/order/width controls with drag reorder and DOM width sync, resettable column settings, API-ready personal column preference saves, summary metrics, generic aggregation, local presentation/decorator rules, configurable header/cell context menus, CSV export, measured-width print/PDF flows, loading/error shell behavior, forwarded DOM prop hooks, and imperative wrapper refs. API-backed column loading, template presentation rules, locale-sensitive column loading, and aggregate width/scroll sync still require custom wrapper code.',
+        'The TanStack preview now covers the core local-wrapper slice: sorting, editable cells, row selection, selected-row callback state, row double-click feedback, shared footer search, Excel-style per-column filter menus with persisted state, client-side paging with density and auto page sizing, search highlighting, local and API-backed column loading through appId + gridId, column visibility/order/width controls with drag reorder and DOM width sync, resettable column settings, API-ready personal column preference saves, summary metrics, generic aggregation, local presentation/decorator rules, configurable header/cell context menus, CSV export, measured-width print/PDF flows, loading/error shell behavior, forwarded DOM prop hooks, and imperative wrapper refs. Template presentation rules and aggregate width/scroll sync still require custom wrapper code.',
       supported: [
         'core-local-columns',
+        'core-api-columns',
         'core-sorting',
         'core-excel-filter-ui',
         'core-row-selection',
@@ -40,6 +41,8 @@ export const gridFeatures = [
         'paging-row-height',
         'paging-compact-mode',
         'columns-local-mode',
+        'columns-api-mode',
+        'columns-user-config',
         'columns-persist-order',
         'columns-persist-visibility',
         'columns-persist-width',
@@ -108,6 +111,7 @@ export const gridFeatures = [
         'ux-error-boundary',
         'ux-filter-state-key',
         'ux-presentation-state-key',
+        'ux-locale-sensitive',
         'ux-ref-grid-instance',
         'ux-ref-selected-rows',
         'ux-ref-processed-columns',
@@ -139,7 +143,7 @@ export const gridFeatures = [
         ],
         ['Status cells render through a custom React component.', ['templates-custom-react', 'templates-status-rendering']],
         [
-          'Requires a custom wrapper/data layer to fetch localized column definitions and user preferences via appId + gridId.',
+          'The wrapper fetches API-backed column definitions from the same gridColumnsByUser endpoint shape as Syncfusion when appId + gridId are supplied, sends the current locale as languageCode, and falls back to local defaults if the request fails.',
           ['core-api-columns', 'columns-api-mode', 'columns-user-config', 'ux-locale-sensitive'],
         ],
         [
