@@ -41,6 +41,28 @@ const toCamelCase = (str) => {
     return str.charAt(0).toLowerCase() + str.slice(1);
 };
 
+const getColumnFieldName = (col) => col.alias || col.field || col.accessorKey || col.id;
+
+const getColumnHeaderText = (col) => {
+    if (typeof col.description === 'string' && col.description) {
+        return col.description;
+    }
+
+    if (typeof col.headerText === 'string' && col.headerText) {
+        return col.headerText;
+    }
+
+    if (typeof col.headerTextId === 'string' && col.headerTextId) {
+        return col.headerTextId;
+    }
+
+    if (typeof col.header === 'string' && col.header) {
+        return col.header;
+    }
+
+    return getColumnFieldName(col) || 'Column';
+};
+
 /**
  * Transforms a single parent column to API format
  */
@@ -74,9 +96,9 @@ const transformToApiFormat = (col, idx) => {
     // Handle both API columns and parent columns intelligently
     return {
         // Core API properties
-        alias: col.alias || col.field,
-        description: col.description || col.headerText || col.headerTextId || col.field || 'Column',
-        width: col.width,
+        alias: getColumnFieldName(col),
+        description: getColumnHeaderText(col),
+        width: col.width ?? col.size,
         visible: col.visible,
         // allowColFiltering: col.allowColFiltering !== undefined ? col.allowColFiltering : col.allowFiltering,
         // allowColSorting: col.allowColSorting !== undefined ? col.allowColSorting : col.allowSorting,

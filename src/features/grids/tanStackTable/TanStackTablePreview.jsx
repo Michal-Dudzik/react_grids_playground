@@ -84,12 +84,13 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   onSaveColumnPreferences = saveColumnPreferencesToApi,
   onSearchPropsChange,
   onSelectionChange,
+  rows: localRows = initialRows,
   tableProps = {},
   tableWrapperProps = {},
   transformColumnsFn,
 } = {}, ref) {
   const tableWrapRef = useRef(null);
-  const [tableData, setTableData] = useState(() => initialRows);
+  const [tableData, setTableData] = useState(() => localRows);
   const [sorting, setSorting] = useState([]);
   const [rowSelection, setRowSelection] = useState({});
   const [selectionMode, setSelectionMode] = useState('multi');
@@ -154,6 +155,10 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   useEffect(() => {
     setRowSelection({});
   }, [selectionMode]);
+
+  useEffect(() => {
+    setTableData(Array.isArray(localRows) ? localRows : []);
+  }, [localRows]);
 
   useResetPaginationOnFilterChange({ columnFilters, globalFilter, setPagination });
   useDismissibleLayer(contextMenu, () => setContextMenu(null));
