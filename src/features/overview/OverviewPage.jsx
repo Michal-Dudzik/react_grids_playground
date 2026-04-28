@@ -11,7 +11,7 @@ export function OverviewPage() {
   return (
     <div className="page-grid">
       <PlaygroundCard
-        footer={<span>Update the checklist entries in the feature registry as each grid gains more wrapper parity.</span>}
+        footer={<span>Track TanStack wrapper parity here while keeping Syncfusion in the codebase for comparison work.</span>}
       >
         <div className="overview-checklist">
           <div

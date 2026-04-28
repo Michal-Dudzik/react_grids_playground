@@ -469,11 +469,7 @@ select {
   gap: 16px;
 }
 
-.tanstack-grid,
-.react-data-grid-preview,
-.prime-grid-preview,
-.mantine-grid-preview,
-.toolbox-grid-host {
+.tanstack-grid {
   min-height: 560px;
 }
 
@@ -1604,49 +1600,6 @@ select {
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-}
-
-.react-data-grid-preview {
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.react-data-grid-preview .rdg {
-  block-size: 560px;
-  border: 0;
-}
-
-.prime-grid-preview {
-  overflow: hidden;
-}
-
-.prime-grid-preview .p-datatable {
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.prime-grid-preview .p-datatable .p-datatable-thead > tr > th {
-  background: var(--surface-muted);
-  color: var(--text-muted);
-}
-
-.prime-grid-preview .p-datatable .p-sortable-column.p-highlight {
-  color: var(--accent-strong);
-}
-
-.mantine-grid-preview {
-  overflow: hidden;
-}
-
-.toolbox-grid-host {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-}
-
-.toolbox-grid-host tbw-grid {
-  display: block;
-  block-size: 560px;
 }
 
 .grid-preview__toolbar {
