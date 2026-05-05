@@ -12,7 +12,7 @@ export function GridSearchBar({
     <Input.Search
       allowClear
       className="shared-grid-search"
-      enterButton="Search"
+      enterButton
       loading={isSearching}
       onChange={(event) => onInputChange?.(event.target.value)}
       onClear={onClear}

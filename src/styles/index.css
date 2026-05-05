@@ -1144,13 +1144,15 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 16px;
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 22px;
   background: linear-gradient(180deg, var(--surface-strong) 0%, var(--surface-muted) 100%);
   color: var(--text);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .shared-grid-footer--attached {
@@ -1173,14 +1175,14 @@ select {
 
 .shared-grid-footer__section--end {
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .shared-grid-footer__pagination,
 .shared-grid-footer__actions {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
 }
 
@@ -1972,7 +1974,7 @@ select {
   }
 
   .shared-grid-search {
-    width: 100%;
+    min-width: 180px;
   }
 
   .tanstack-grid__filter-actions {

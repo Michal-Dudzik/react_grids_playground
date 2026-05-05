@@ -2,6 +2,7 @@ import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Alert } from 'antd';
 import { advancedFilterOperators, advancedFilterOperatorsWithoutInput } from '../lib/tableConfig';
+import { renderColumnDisplayValue } from '../lib/tableDisplay.js';
 import {
   buildColumnUniqueValues,
   formatFilterOptionLabel,
@@ -422,12 +423,19 @@ export function ContextMenu({ items, onClose, onSelect, state }) {
 }
 
 export function EditableCell({ column, getValue, renderPreview, row, searchTerm, table }) {
-  const value = getValue() ?? '';
+  const rawValue = getValue();
+  const value = rawValue ?? '';
   const columnMeta = column.columnDef.meta ?? {};
-  const showSearchPreview = !renderPreview && Boolean(searchTerm?.trim());
 
   if (!columnMeta.editable) {
-    return renderPreview ? renderPreview(value, searchTerm) : renderHighlightedText(value, searchTerm);
+    return renderPreview
+      ? renderPreview(value, searchTerm)
+      : renderColumnDisplayValue({
+          column,
+          rawValue,
+          renderText: renderHighlightedText,
+          searchTerm,
+        });
   }
 
   function updateValue(nextValue) {
@@ -436,11 +444,6 @@ export function EditableCell({ column, getValue, renderPreview, row, searchTerm,
 
   return (
     <div className="tanstack-grid__editable-cell">
-      {renderPreview ? (
-        <span className="tanstack-grid__editable-preview">{renderPreview(value, searchTerm)}</span>
-      ) : showSearchPreview ? (
-        <span className="tanstack-grid__editable-preview">{renderHighlightedText(value, searchTerm)}</span>
-      ) : null}
       {columnMeta.filterVariant === 'select' ? (
         <select
           aria-label={`Edit ${column.columnDef.header}`}

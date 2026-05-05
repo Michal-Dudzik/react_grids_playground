@@ -1,6 +1,7 @@
 import { getDemoRows } from '../../../demoData';
 import mapApiColumns, { standardizeColumns } from '../../syncfusion-grid/features/columns/mapApiColumns';
 import { tableColumnStateKey } from './tableConfig';
+import { compileColumnDisplay } from './tableDisplay.js';
 import { advancedColumnFilterFn } from './tableFilters';
 
 export const initialRows = getDemoRows();
@@ -71,6 +72,9 @@ export const baseColumns = [
     header: 'Updated',
     size: 140,
     meta: {
+      display: {
+        type: 'date',
+      },
       editable: true,
       filterVariant: 'text',
     },
@@ -296,6 +300,10 @@ export function buildTanStackDataColumns(sourceColumns, { dataRows = initialRows
       const filterOptions =
         localColumn?.meta?.filterOptions ??
         (filterVariant === 'select' ? buildUniqueOptionsFromRows(dataRows, column.field) : undefined);
+      const compiledDisplay = compileColumnDisplay(
+        localColumn?.meta?.display ?? column._original?.meta?.display ?? column.display,
+        column,
+      );
 
       return {
         ...(localColumn ?? {}),
@@ -308,6 +316,7 @@ export function buildTanStackDataColumns(sourceColumns, { dataRows = initialRows
         size: column.width ?? localColumn?.size ?? 120,
         meta: {
           ...(localColumn?.meta ?? {}),
+          display: compiledDisplay,
           editable: column.allowEditing ?? localColumn?.meta?.editable ?? false,
           filterOptions,
           filterVariant,

@@ -58,6 +58,7 @@ import {
   prepareContextMenuItems,
   reorderItems,
 } from './lib/tableUtils';
+import { getColumnDisplayText } from './lib/tableDisplay.js';
 import {
   ContextMenu,
   EditableCell,
@@ -101,6 +102,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   const [showAllRows, setShowAllRows] = useState(false);
   const [autoPageSize, setAutoPageSize] = useState(false);
   const [rowDensity, setRowDensity] = useState('standard');
+  const [editingEnabled, setEditingEnabled] = useState(true);
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState('page');
   const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
@@ -202,6 +204,10 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       },
       ...dataColumns.map((column) => ({
         ...column,
+        meta: {
+          ...(column.meta ?? {}),
+          editable: editingEnabled && Boolean(column.meta?.editable),
+        },
         cell:
           getColumnId(column) === 'status'
             ? (cellContext) => (
@@ -221,7 +227,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
               ),
       })),
     ],
-    [currentDefaultColumnSizing.select, dataColumns, globalFilter, selectionMode],
+    [currentDefaultColumnSizing.select, dataColumns, editingEnabled, globalFilter, selectionMode],
   );
 
   const table = useReactTable({
@@ -619,6 +625,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       ...position,
       cellId: cell.id,
       columnId: cell.column.id,
+      displayValue: getColumnDisplayText(cell.column, getCellValue(row, cell.column.id), 'export'),
       label: `${row.original.id} · ${getColumnLabel(cell.column)}`,
       rowId: row.id,
       target: 'cell',
@@ -720,7 +727,9 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   }
 
   function copyContextRow(row) {
-    const content = visibleExportColumns.map((column) => buildCsvValue(row.original[column.id])).join(',');
+    const content = visibleExportColumns
+      .map((column) => buildCsvValue(getColumnDisplayText(column, row.original[column.id], 'export')))
+      .join(',');
     copyText(content);
   }
 
@@ -815,7 +824,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       {
         key: 'copy-cell',
         label: 'Copy cell value',
-        onSelect: () => copyText(menuState.value),
+        onSelect: () => copyText(menuState.displayValue ?? menuState.value),
       },
       {
         disabled: !row,
@@ -1064,7 +1073,9 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     <div className="tanstack-grid">
       <TanStackTableToolbar
         autoPageSize={autoPageSize}
+        editingEnabled={editingEnabled}
         onAutoPageSizeChange={setAutoPageSize}
+        onEditingEnabledChange={setEditingEnabled}
         onPageSizeChange={(pageSize) =>
           setPagination((current) => ({
             ...current,

@@ -1,9 +1,12 @@
+import { Switch } from 'antd';
 import { GridSummaryBar } from './GridSummaryBar';
 import { rowDensityConfigs } from '../lib/tableConfig';
 import { AdvancedColumnFilterButton } from './TanStackTableComponents';
 
 export function TanStackTableToolbar({
   autoPageSize,
+  editingEnabled,
+  onEditingEnabledChange,
   onAutoPageSizeChange,
   onPageSizeChange,
   onRowDensityChange,
@@ -50,6 +53,11 @@ export function TanStackTableToolbar({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="tanstack-grid__field">
+          <span>Edit mode</span>
+          <Switch checked={editingEnabled} onChange={onEditingEnabledChange} />
         </label>
 
         <label className="tanstack-grid__toggle">

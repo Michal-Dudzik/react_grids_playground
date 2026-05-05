@@ -1,4 +1,5 @@
 import { defaultContextMenuConfig } from './tableConfig';
+import { getColumnDisplayText } from './tableDisplay.js';
 
 export function reorderItems(items, activeId, overId) {
   const getItemId = (item) => (typeof item === 'string' ? item : item.id);
@@ -120,7 +121,7 @@ export function buildCsvContent(columns, tableRows) {
   const headerRow = columns.map((column) => buildCsvValue(column.columnDef.header ?? column.id)).join(',');
   const dataRows = tableRows.map((row) =>
     columns
-      .map((column) => buildCsvValue(row.original[column.id]))
+      .map((column) => buildCsvValue(getColumnDisplayText(column, row.original[column.id], 'export')))
       .join(','),
   );
 
@@ -152,7 +153,7 @@ export function buildPrintableMarkup({ columns, rows: tableRows, title }) {
     .map(
       (row) =>
         `<tr>${columns
-          .map((column) => `<td>${escapeHtml(row.original[column.id])}</td>`)
+          .map((column) => `<td>${escapeHtml(getColumnDisplayText(column, row.original[column.id], 'print'))}</td>`)
           .join('')}</tr>`,
     )
     .join('');
