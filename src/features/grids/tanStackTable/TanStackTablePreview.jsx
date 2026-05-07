@@ -109,6 +109,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState('page');
   const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
+  const [activeRow, setActiveRow] = useState(null);
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [openFilterColumnId, setOpenFilterColumnId] = useState('');
@@ -708,9 +709,15 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     }));
   }
 
-  function activateRow(row, event) {
+  function activateRow(row, { event, source = 'programmatic' } = {}) {
+    setActiveRow(row.original);
+
+    if (source !== 'double-click') {
+      return;
+    }
+
     setLastDoubleClickedRow(row.original);
-    onRowDoubleClick?.(row.original, { event, row, table });
+    onRowDoubleClick?.(row.original, { event, row, source, table });
   }
 
   function selectContextRow(rowId, replaceSelection = selectionMode === 'single') {
@@ -889,7 +896,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
             disabled: !row,
             key: 'activate-row',
             label: 'Set as active row',
-            onSelect: () => activateRow(row),
+            onSelect: () => activateRow(row, { source: 'context-menu' }),
           },
           {
             disabled: !row,
@@ -950,18 +957,29 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     ref,
     () => ({
       getColumns: () => dataColumns,
+      getActiveRow: () => activeRow,
       getGridInstance: () => table,
       getProcessedColumns: () => visibleExportColumns,
       getSelectedRows: () => table.getSelectedRowModel().rows.map((row) => row.original),
       getSelectedRowsCount: () => table.getSelectedRowModel().rows.length,
       getTableInstance: () => table,
       hasSelectedRows: () => table.getSelectedRowModel().rows.length > 0,
+      setActiveRow: (rowId) => {
+        const normalizedRowId = String(rowId);
+        const row =
+          table.getPrePaginationRowModel().rowsById[normalizedRowId] ??
+          table.getRowModel().rowsById[normalizedRowId];
+
+        if (row) {
+          activateRow(row);
+        }
+      },
       printAll: () => printRows('all'),
       printCurrentPage: () => printRows('page'),
       printSelected: () => printRows('selected'),
       syncColumnWidths: syncColumnWidthsFromDom,
     }),
-    [dataColumns, ref, table, visibleExportColumns],
+    [activeRow, dataColumns, ref, table, visibleExportColumns],
   );
 
   const orderedDataColumnIds = normalizeColumnOrder(columnOrder, currentDefaultColumnOrder).filter(
@@ -1008,6 +1026,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     { label: 'Matching rows', value: matchingRows.length },
     { label: 'Selected rows', value: selectedRows.length },
     { label: 'Selection callback', value: selectedRowsReport.length > 0 ? selectedRowsReport.join(', ') : 'none' },
+    { label: 'Active row', value: activeRow?.id ?? 'none' },
     { label: 'Last double-click', value: lastDoubleClickedRow?.id ?? 'none' },
     { label: 'Search', value: globalFilter || 'none' },
     { label: 'Column filters', value: activeColumnFilters || 'none' },
@@ -1142,11 +1161,11 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
         ) : null}
 
         <TanStackTableGrid
+          activeRow={activeRow}
           enableAltRow={enableAltRow}
           getCellProps={getCellProps}
           getHeaderProps={getHeaderProps}
           getRowProps={getRowProps}
-          lastDoubleClickedRow={lastDoubleClickedRow}
           onActivateRow={activateRow}
           onClearAdvancedColumnFilter={clearAdvancedColumnFilter}
           onOpenCellContextMenu={openCellContextMenu}

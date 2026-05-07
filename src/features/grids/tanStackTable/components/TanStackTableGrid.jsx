@@ -29,11 +29,11 @@ function wrapHeaderLabelWithTooltip(content, header) {
 }
 
 export function TanStackTableGrid({
+  activeRow,
   enableAltRow = false,
   getCellProps,
   getHeaderProps,
   getRowProps,
-  lastDoubleClickedRow,
   onActivateRow,
   onClearAdvancedColumnFilter,
   onOpenCellContextMenu,
@@ -212,7 +212,7 @@ export function TanStackTableGrid({
                   {...rowRestProps}
                   className={mergeClassNames(
                     row.getIsSelected() ? 'tanstack-grid__row--selected' : '',
-                    lastDoubleClickedRow?.id === row.original.id ? 'tanstack-grid__row--active' : '',
+                    activeRow?.id === row.original.id ? 'tanstack-grid__row--active' : '',
                     getPresentationClassName('row', rowPresentationRule),
                     rowClassName,
                   )}
@@ -221,7 +221,7 @@ export function TanStackTableGrid({
                     callOptionalHandler(onRowDoubleClickProp, event, { row, table });
 
                     if (!event.defaultPrevented) {
-                      onActivateRow(row, event);
+                      onActivateRow(row, { event, source: 'double-click' });
                     }
                   }}
                   style={rowStyle}
