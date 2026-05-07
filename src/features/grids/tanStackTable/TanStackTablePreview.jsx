@@ -79,6 +79,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   getHeaderProps,
   getRowProps,
   gridId,
+  enableAltRow = true,
   loading = false,
   locale = 'en-US',
   onRowDoubleClick,
@@ -1141,6 +1142,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
         ) : null}
 
         <TanStackTableGrid
+          enableAltRow={enableAltRow}
           getCellProps={getCellProps}
           getHeaderProps={getHeaderProps}
           getRowProps={getRowProps}

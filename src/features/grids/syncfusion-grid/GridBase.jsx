@@ -20,6 +20,7 @@ const GridBase = forwardRef(({
                                  data,
                                  columns,
                                  enableSelectionColumn = false,
+                                 enableAltRow = true,
                                  allowEditing = false,
                                  editSettings = {},
                                  ...gridProps
@@ -33,7 +34,7 @@ const GridBase = forwardRef(({
             height="100%"
             gridLines="Both"
             enableHover={true}
-            enableAltRow={true}
+            enableAltRow={enableAltRow}
             allowResizing={true}
             allowExcelExport={true}
             enablePersistence={false}

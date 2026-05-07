@@ -29,6 +29,7 @@ function wrapHeaderLabelWithTooltip(content, header) {
 }
 
 export function TanStackTableGrid({
+  enableAltRow = false,
   getCellProps,
   getHeaderProps,
   getRowProps,
@@ -80,7 +81,11 @@ export function TanStackTableGrid({
     >
       <table
         {...resolvedTableProps}
-        className={mergeClassNames('tanstack-grid__table', tableClassName)}
+        className={mergeClassNames(
+          'tanstack-grid__table',
+          enableAltRow ? 'tanstack-grid__table--alt-rows' : '',
+          tableClassName,
+        )}
         style={{ width: table.getTotalSize(), ...tableStyle }}
       >
         <thead>

@@ -7,6 +7,7 @@
   --surface: rgba(255, 252, 246, 0.82);
   --surface-strong: #fffdf8;
   --surface-muted: rgba(255, 251, 245, 0.72);
+  --grid-row-alt-bg: color-mix(in srgb, var(--accent) 10%, var(--surface-strong));
   --border: rgba(58, 51, 43, 0.12);
   --border-strong: rgba(58, 51, 43, 0.22);
   --text: #231d18;
@@ -31,6 +32,7 @@
   --surface: rgba(18, 25, 24, 0.82);
   --surface-strong: #16201f;
   --surface-muted: rgba(22, 32, 31, 0.66);
+  --grid-row-alt-bg: color-mix(in srgb, var(--accent) 14%, var(--surface-strong));
   --border: rgba(225, 226, 218, 0.08);
   --border-strong: rgba(225, 226, 218, 0.18);
   --text: #f5f0e6;
@@ -834,6 +836,10 @@ select {
   padding: var(--tanstack-cell-padding-y, 16px) 18px;
   text-align: left;
   border-bottom: var(--tanstack-row-divider-width, 1px) solid var(--border);
+}
+
+.tanstack-grid__table--alt-rows tbody tr:nth-child(even) td {
+  background: var(--grid-row-alt-bg);
 }
 
 .tanstack-grid__table th:not(:last-child),

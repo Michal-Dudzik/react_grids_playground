@@ -81,6 +81,7 @@ In this mode:
 | `allowSorting` | `boolean` | `true` | Passed to the grid |
 | `allowFiltering` | `boolean` | `true` | Controls whether Syncfusion filter UI is enabled |
 | `enableSelectionColumn` | `boolean` | `false` | Adds the checkbox selection column and switches selection to multi-row |
+| `enableAltRow` | `boolean` | `true` | Toggles alternating row background styling |
 | `allowEditing` | `boolean` | `false` | Enables Syncfusion edit module |
 | `editSettings` | `object` | `{}` | Merged into Syncfusion `editSettings` |
 | `selectionSettings` | `object` | derived | Overrides shared default selection settings |
