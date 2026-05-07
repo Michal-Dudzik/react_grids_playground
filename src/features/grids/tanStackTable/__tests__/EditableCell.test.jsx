@@ -30,4 +30,31 @@ describe('EditableCell', () => {
     expect(markup).not.toContain('status-badge');
     expect(markup).not.toContain('tanstack-grid__editable-preview');
   });
+
+  it('renders a highlighted preview above the editor when search is active', () => {
+    const markup = renderToStaticMarkup(
+      <EditableCell
+        column={{
+          id: 'status',
+          columnDef: {
+            header: 'Status',
+            meta: {
+              editable: true,
+              filterOptions: ['Live', 'Review', 'Draft'],
+              filterVariant: 'select',
+            },
+          },
+        }}
+        getValue={() => 'Live'}
+        renderPreview={(value, searchTerm) => <span className="status-badge">{value}-{searchTerm}</span>}
+        row={{ original: { id: 'row-1' } }}
+        searchTerm="Live"
+        table={{ options: { meta: { updateData: vi.fn() } } }}
+      />,
+    );
+
+    expect(markup).toContain('tanstack-grid__editable-preview');
+    expect(markup).toContain('status-badge');
+    expect(markup).toContain('<select');
+  });
 });

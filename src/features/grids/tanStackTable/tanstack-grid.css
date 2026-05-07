@@ -632,6 +632,10 @@
 
 .tanstack-grid__editable-preview {
   min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .tanstack-grid__editable-cell input,

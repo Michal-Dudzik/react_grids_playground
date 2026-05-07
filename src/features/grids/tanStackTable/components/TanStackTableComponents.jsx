@@ -542,16 +542,18 @@ export function EditableCell({ column, getValue, renderPreview, row, searchTerm,
   const rawValue = getValue();
   const value = rawValue ?? '';
   const columnMeta = column.columnDef.meta ?? {};
+  const shouldRenderHighlightedPreview = Boolean(searchTerm?.trim());
+  const previewContent = renderPreview
+    ? renderPreview(value, searchTerm)
+    : renderColumnDisplayValue({
+        column,
+        rawValue,
+        renderText: renderHighlightedText,
+        searchTerm,
+      });
 
   if (!columnMeta.editable) {
-    return renderPreview
-      ? renderPreview(value, searchTerm)
-      : renderColumnDisplayValue({
-          column,
-          rawValue,
-          renderText: renderHighlightedText,
-          searchTerm,
-        });
+    return previewContent;
   }
 
   function updateValue(nextValue) {
@@ -560,6 +562,9 @@ export function EditableCell({ column, getValue, renderPreview, row, searchTerm,
 
   return (
     <div className="tanstack-grid__editable-cell">
+      {shouldRenderHighlightedPreview ? (
+        <div className="tanstack-grid__editable-preview">{previewContent}</div>
+      ) : null}
       {columnMeta.filterVariant === 'select' ? (
         <select
           aria-label={`Edit ${column.columnDef.header}`}
