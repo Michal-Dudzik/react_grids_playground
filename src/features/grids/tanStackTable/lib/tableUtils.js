@@ -1,4 +1,4 @@
-import { defaultContextMenuConfig } from './tableConfig';
+import { defaultContextMenuConfig, MIN_COLUMN_WIDTH } from './tableConfig';
 import { getColumnDisplayText } from './tableDisplay.js';
 
 export function reorderItems(items, activeId, overId) {
@@ -145,7 +145,7 @@ export function buildPrintableMarkup({ columns, rows: tableRows, title }) {
   const colgroupMarkup = columns
     .map((column) => {
       const width = Number(column.getSize?.() ?? column.columnDef.size ?? 140);
-      return `<col style="width: ${Math.max(72, Math.round(width))}px" />`;
+      return `<col style="width: ${Math.max(MIN_COLUMN_WIDTH, Math.round(width))}px" />`;
     })
     .join('');
 

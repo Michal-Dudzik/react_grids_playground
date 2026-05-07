@@ -1,7 +1,6 @@
 import { Switch } from 'antd';
 import { GridSummaryBar } from './GridSummaryBar';
 import { rowDensityConfigs } from '../lib/tableConfig';
-import { AdvancedColumnFilterButton } from './TanStackTableComponents';
 
 export function TanStackTableToolbar({
   autoPageSize,
@@ -74,45 +73,6 @@ export function TanStackTableToolbar({
           />
           <span>Auto page size</span>
         </label>
-      </div>
-    </div>
-  );
-}
-
-export function TanStackTableFiltersPanel({
-  activeColumnFilters,
-  columns,
-  onClearAdvancedColumnFilter,
-  onClearColumnFilters,
-  onToggleColumn,
-  onUpdateAdvancedColumnFilter,
-  openFilterColumnId,
-  rows,
-}) {
-  return (
-    <div className="tanstack-grid__inline-panel">
-      <div className="tanstack-grid__filters">
-        {columns.map((column) => (
-          <AdvancedColumnFilterButton
-            column={column}
-            isOpen={openFilterColumnId === column.id}
-            key={column.id}
-            onClear={onClearAdvancedColumnFilter}
-            onClose={() => onToggleColumn('')}
-            onFilterChange={onUpdateAdvancedColumnFilter}
-            onToggle={() => onToggleColumn(openFilterColumnId === column.id ? '' : column.id)}
-            rows={rows}
-          />
-        ))}
-
-        <div className="tanstack-grid__filter-actions">
-          <span className="tanstack-grid__filter-count">
-            {activeColumnFilters} active filter{activeColumnFilters === 1 ? '' : 's'}
-          </span>
-          <button className="tanstack-grid__button" onClick={onClearColumnFilters} type="button">
-            Clear filters
-          </button>
-        </div>
       </div>
     </div>
   );

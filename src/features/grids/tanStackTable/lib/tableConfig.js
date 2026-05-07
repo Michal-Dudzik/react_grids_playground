@@ -1,4 +1,5 @@
 export const exportableFieldIds = ['id', 'owner', 'region', 'status', 'revenue', 'updatedAt'];
+export const MIN_COLUMN_WIDTH = 80;
 export const tableColumnStateKey = 'tanstack-table-preview-column-state-v1';
 export const tableFilterStateKey = 'tanstack-table-preview-filter-state-v1';
 export const presentationRulesStateKey = 'tanstack-table-preview-presentation-rules-v1';

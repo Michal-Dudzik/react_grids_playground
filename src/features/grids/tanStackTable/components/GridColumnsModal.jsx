@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
+import { MIN_COLUMN_WIDTH } from '../lib/tableConfig';
 
 function GridColumnsModalRow({ column, dragHandleProps }) {
   return (
@@ -37,7 +38,7 @@ function GridColumnsModalRow({ column, dragHandleProps }) {
             <InputNumber
               addonAfter="px"
               disabled={column.widthDisabled}
-              min={column.minWidth ?? 80}
+              min={column.minWidth ?? MIN_COLUMN_WIDTH}
               onChange={(value) => column.onWidthChange?.(value)}
               precision={0}
               size="small"

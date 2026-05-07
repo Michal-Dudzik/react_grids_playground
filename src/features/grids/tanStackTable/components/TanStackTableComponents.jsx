@@ -1,11 +1,13 @@
 import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Alert } from 'antd';
+import { FilterFilled, FilterOutlined } from '@ant-design/icons';
 import { advancedFilterOperators, advancedFilterOperatorsWithoutInput } from '../lib/tableConfig';
 import { renderColumnDisplayValue } from '../lib/tableDisplay.js';
 import {
   buildColumnUniqueValues,
   formatFilterOptionLabel,
+  getEmptyAdvancedFilterValue,
   isAdvancedFilterActive,
   normalizeAdvancedFilterValue,
   normalizeSelectedFilterValues,
@@ -153,12 +155,17 @@ export function AdvancedColumnFilterButton({
   onFilterChange,
   onToggle,
   rows,
+  triggerVariant = 'default',
 }) {
   const panelRef = useRef(null);
+  const menuRef = useRef(null);
   const [valueSearch, setValueSearch] = useState('');
-  const filterValue = normalizeAdvancedFilterValue(column.getFilterValue());
-  const isActive = isAdvancedFilterActive(filterValue);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const appliedFilterValue = normalizeAdvancedFilterValue(column.getFilterValue());
+  const [draftFilterValue, setDraftFilterValue] = useState(appliedFilterValue);
+  const isActive = isAdvancedFilterActive(appliedFilterValue);
   const label = getColumnLabelFromColumn(column);
+  const isIconTrigger = triggerVariant === 'icon';
   const allColumnValues = useMemo(() => buildColumnUniqueValues(rows, column.id), [column.id, rows]);
   const visibleColumnValues = useMemo(() => {
     const normalizedSearch = valueSearch.trim().toLowerCase();
@@ -167,11 +174,11 @@ export function AdvancedColumnFilterButton({
       ? allColumnValues.filter((value) => value.toLowerCase().includes(normalizedSearch))
       : allColumnValues;
   }, [allColumnValues, valueSearch]);
-  const selectedValues = filterValue.selectedValues;
+  const selectedValues = draftFilterValue.selectedValues;
   const selectedValueSet = new Set(selectedValues);
   const allValuesSelected = selectedValues.length === 0;
   const conditionActive =
-    advancedFilterOperatorsWithoutInput.has(filterValue.operator) || filterValue.query.trim().length > 0;
+    advancedFilterOperatorsWithoutInput.has(draftFilterValue.operator) || draftFilterValue.query.trim().length > 0;
   const allVisibleValuesSelected =
     allValuesSelected ||
     (visibleColumnValues.length > 0 && visibleColumnValues.every((value) => selectedValueSet.has(value)));
@@ -184,24 +191,90 @@ export function AdvancedColumnFilterButton({
       ? 'Rule'
       : 'All'
     : `${selectedValues.length}/${allColumnValues.length}`;
+  const sortDirection = column.getIsSorted();
+
+  useEffect(() => {
+    if (isOpen) {
+      setDraftFilterValue(normalizeAdvancedFilterValue(column.getFilterValue()));
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuPosition(null);
+      return undefined;
+    }
+
+    function updateMenuPosition() {
+      const triggerElement = panelRef.current;
+
+      if (!triggerElement) {
+        return;
+      }
+
+      const horizontalPadding = 16;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const rect = triggerElement.getBoundingClientRect();
+      const width = Math.min(340, viewportWidth - horizontalPadding * 2);
+      const gap = 8;
+      const minimumMenuHeight = 240;
+      const desiredMenuHeight = Math.min(menuRef.current?.offsetHeight ?? 420, viewportHeight - horizontalPadding * 2);
+      const spaceBelow = viewportHeight - rect.bottom - horizontalPadding;
+      const spaceAbove = rect.top - horizontalPadding;
+      const shouldOpenAbove = spaceBelow < minimumMenuHeight && spaceAbove > spaceBelow;
+
+      let left = isIconTrigger ? rect.right - width : rect.left;
+      left = Math.max(horizontalPadding, Math.min(left, viewportWidth - width - horizontalPadding));
+
+      const top = shouldOpenAbove
+        ? Math.max(horizontalPadding, rect.top - desiredMenuHeight - gap)
+        : rect.bottom + gap;
+      const maxHeight = shouldOpenAbove
+        ? Math.max(180, rect.top - horizontalPadding - gap)
+        : Math.max(180, viewportHeight - rect.bottom - horizontalPadding - gap);
+
+      setMenuPosition({
+        left,
+        maxHeight,
+        top,
+        width,
+      });
+    }
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [isIconTrigger, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
       return undefined;
     }
 
-    function handlePointerDown(event) {
-      if (panelRef.current?.contains(event.target)) {
+    function handleWindowClick(event) {
+      const eventTarget = event.target;
+
+      if (
+        panelRef.current?.contains(eventTarget) ||
+        menuRef.current?.contains(eventTarget) ||
+        eventTarget?.closest?.('.tanstack-grid__filter-condition-popup')
+      ) {
         return;
       }
 
       onClose();
     }
 
-    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('click', handleWindowClick);
 
     return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('click', handleWindowClick);
     };
   }, [isOpen, onClose]);
 
@@ -212,10 +285,13 @@ export function AdvancedColumnFilterButton({
   }, [isOpen]);
 
   function commitFilter(patch) {
-    onFilterChange(column.id, {
-      ...filterValue,
+    const nextFilterValue = normalizeAdvancedFilterValue({
+      ...draftFilterValue,
       ...patch,
     });
+
+    setDraftFilterValue(nextFilterValue);
+    onFilterChange(column.id, nextFilterValue);
   }
 
   function commitSelectedValues(nextSelectedValues) {
@@ -254,105 +330,145 @@ export function AdvancedColumnFilterButton({
       <button
         className={mergeClassNames(
           'tanstack-grid__filter-trigger',
+          isIconTrigger ? 'tanstack-grid__filter-trigger--icon' : '',
           isActive ? 'tanstack-grid__filter-trigger--active' : '',
         )}
-        onClick={onToggle}
+        aria-label={`${isActive ? 'Edit' : 'Add'} filter for ${label}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        title={`${isActive ? 'Edit' : 'Add'} filter for ${label}`}
         type="button"
       >
-        <span>{label}</span>
-        <strong>{selectedSummary}</strong>
+        {isIconTrigger ? (
+          <>
+            {isActive ? <FilterFilled /> : <FilterOutlined />}
+            <span className="tanstack-grid__sr-only">{selectedSummary}</span>
+          </>
+        ) : (
+          <>
+            <span>{label}</span>
+            <strong>{selectedSummary}</strong>
+          </>
+        )}
       </button>
 
-      {isOpen ? (
-        <div className="tanstack-grid__filter-menu">
-          <div className="tanstack-grid__filter-menu-title">
-            <span>{label}</span>
-            <button aria-label="Close filter menu" onClick={onClose} type="button">
-              ×
-            </button>
-          </div>
+      {isOpen && menuPosition != null
+        ? createPortal(
+            <div
+              className={mergeClassNames(
+                'tanstack-grid__filter-menu',
+                isIconTrigger ? 'tanstack-grid__filter-menu--header' : '',
+              )}
+              ref={menuRef}
+              style={menuPosition ?? undefined}
+            >
+              <div className="tanstack-grid__filter-menu-title">
+                <span>{label}</span>
+                <button aria-label="Close filter menu" onClick={onClose} type="button">
+                  ×
+                </button>
+              </div>
 
-          <div className="tanstack-grid__filter-menu-actions">
-            <button onClick={() => column.toggleSorting(false)} type="button">
-              Sort A to Z
-            </button>
-            <button onClick={() => column.toggleSorting(true)} type="button">
-              Sort Z to A
-            </button>
-            <button disabled={!column.getIsSorted()} onClick={() => column.clearSorting()} type="button">
-              Clear sort
-            </button>
-          </div>
+              <div className="tanstack-grid__filter-menu-actions">
+                <button
+                  className={sortDirection === 'asc' ? 'tanstack-grid__filter-menu-action--active' : ''}
+                  onClick={() => column.toggleSorting(false)}
+                  type="button"
+                >
+                  Sort A to Z
+                </button>
+                <button
+                  className={sortDirection === 'desc' ? 'tanstack-grid__filter-menu-action--active' : ''}
+                  onClick={() => column.toggleSorting(true)}
+                  type="button"
+                >
+                  Sort Z to A
+                </button>
+                <button disabled={!column.getIsSorted()} onClick={() => column.clearSorting()} type="button">
+                  Clear sort
+                </button>
+              </div>
 
-          <div className="tanstack-grid__filter-condition">
-            <label className="tanstack-grid__field">
-              <span>Condition</span>
-              <select
-                onChange={(event) => commitFilter({ operator: event.target.value })}
-                value={filterValue.operator}
-              >
-                {advancedFilterOperators.map((operator) => (
-                  <option key={operator.value} value={operator.value}>
-                    {operator.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="tanstack-grid__field">
-              <span>Value</span>
-              <input
-                disabled={advancedFilterOperatorsWithoutInput.has(filterValue.operator)}
-                onChange={(event) => commitFilter({ query: event.target.value })}
-                placeholder="Filter value"
-                type="text"
-                value={filterValue.query}
-              />
-            </label>
-          </div>
-
-          <div className="tanstack-grid__filter-values">
-            <input
-              aria-label={`Search ${label} values`}
-              onChange={(event) => setValueSearch(event.target.value)}
-              placeholder="Search values"
-              type="text"
-              value={valueSearch}
-            />
-            <label className="tanstack-grid__filter-check">
-              <TableCheckbox
-                checked={allVisibleValuesSelected}
-                indeterminate={someValuesSelected}
-                onChange={toggleVisibleOptions}
-              />
-              <span>Select all</span>
-            </label>
-            <div className="tanstack-grid__filter-options">
-              {visibleColumnValues.map((option) => (
-                <label className="tanstack-grid__filter-check" key={option}>
-                  <input
-                    checked={allValuesSelected || selectedValueSet.has(option)}
-                    onChange={() => toggleFilterOption(option)}
-                    type="checkbox"
-                  />
-                  <span>{formatFilterOptionLabel(option)}</span>
+              <div className="tanstack-grid__filter-condition">
+                <label className="tanstack-grid__field">
+                  <span>Condition</span>
+                  <select
+                    onChange={(event) => commitFilter({ operator: event.target.value })}
+                    value={draftFilterValue.operator}
+                  >
+                    {advancedFilterOperators.map((operator) => (
+                      <option key={operator.value} value={operator.value}>
+                        {operator.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              ))}
-              {visibleColumnValues.length === 0 ? (
-                <span className="tanstack-grid__filter-empty">No values found</span>
-              ) : null}
-            </div>
-          </div>
+                <label className="tanstack-grid__field">
+                  <span>Value</span>
+                  <input
+                    disabled={advancedFilterOperatorsWithoutInput.has(draftFilterValue.operator)}
+                    onChange={(event) => commitFilter({ query: event.target.value })}
+                    placeholder="Filter value"
+                    type="text"
+                    value={draftFilterValue.query}
+                  />
+                </label>
+              </div>
 
-          <div className="tanstack-grid__filter-menu-footer">
-            <button disabled={!isActive} onClick={() => onClear(column.id)} type="button">
-              Clear
-            </button>
-            <button className="tanstack-grid__button--primary" onClick={onClose} type="button">
-              Done
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <div className="tanstack-grid__filter-values">
+                <input
+                  aria-label={`Search ${label} values`}
+                  onChange={(event) => setValueSearch(event.target.value)}
+                  placeholder="Search values"
+                  type="text"
+                  value={valueSearch}
+                />
+                <label className="tanstack-grid__filter-check">
+                  <TableCheckbox
+                    checked={allVisibleValuesSelected}
+                    indeterminate={someValuesSelected}
+                    onChange={toggleVisibleOptions}
+                  />
+                  <span>Select all</span>
+                </label>
+                <div className="tanstack-grid__filter-options">
+                  {visibleColumnValues.map((option) => (
+                    <label className="tanstack-grid__filter-check" key={option}>
+                      <input
+                        checked={allValuesSelected || selectedValueSet.has(option)}
+                        onChange={() => toggleFilterOption(option)}
+                        type="checkbox"
+                      />
+                      <span>{formatFilterOptionLabel(option)}</span>
+                    </label>
+                  ))}
+                  {visibleColumnValues.length === 0 ? (
+                    <span className="tanstack-grid__filter-empty">No values found</span>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="tanstack-grid__filter-menu-footer">
+                <button
+                  disabled={!isActive}
+                  onClick={() => {
+                    setDraftFilterValue(getEmptyAdvancedFilterValue());
+                    onClear(column.id);
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+                <button className="tanstack-grid__button--primary" onClick={onClose} type="button">
+                  Done
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

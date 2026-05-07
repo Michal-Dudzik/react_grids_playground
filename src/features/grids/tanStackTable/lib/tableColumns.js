@@ -83,7 +83,7 @@ export const baseColumns = [
 
 export const defaultColumnOrder = ['select', ...baseColumns.map((column) => column.accessorKey)];
 export const defaultColumnSizing = {
-  select: 72,
+  select: 44,
   ...Object.fromEntries(baseColumns.map((column) => [column.accessorKey, column.size])),
 };
 export const baseColumnById = new Map(baseColumns.map((column) => [column.accessorKey, column]));
@@ -124,6 +124,7 @@ export function buildColumnSettingsState({
     columnSizing: {
       ...nextDefaultColumnSizing,
       ...normalizeColumnSizing(columnSizing, nextDefaultColumnSizing),
+      select: nextDefaultColumnSizing.select,
     },
     columnVisibility: normalizeColumnVisibility(columnVisibility, nextDefaultColumnOrder),
   };

@@ -509,11 +509,17 @@ select {
 
 .tanstack-grid__field input,
 .tanstack-grid__field select {
+  width: 100%;
   min-height: 42px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface-strong);
+  color: var(--text);
+}
+
+.tanstack-grid__field .ant-select.ant-select-single .ant-select-selection-item,
+.tanstack-grid__field .ant-select.ant-select-single .ant-select-selection-placeholder {
   color: var(--text);
 }
 
@@ -599,6 +605,8 @@ select {
 
 .tanstack-grid__filter-menu-wrap {
   position: relative;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .tanstack-grid__filter-trigger {
@@ -616,6 +624,19 @@ select {
   cursor: pointer;
 }
 
+.tanstack-grid__filter-trigger--icon {
+  width: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  height: 18px;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
 .tanstack-grid__filter-trigger strong {
   color: var(--text-muted);
   font-size: 0.76rem;
@@ -627,23 +648,31 @@ select {
   background: var(--accent-soft);
 }
 
+.tanstack-grid__filter-trigger--icon.tanstack-grid__filter-trigger--active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+}
+
 .tanstack-grid__filter-trigger--active strong {
   color: var(--accent-strong);
 }
 
 .tanstack-grid__filter-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 40;
+  position: fixed;
+  z-index: 1200;
   display: grid;
   gap: 12px;
-  width: min(340px, calc(100vw - 48px));
   padding: 14px;
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   background: var(--surface-strong);
   box-shadow: var(--shadow-md);
+  overflow: auto;
+}
+
+.tanstack-grid__filter-menu--header {
+  transform-origin: top right;
 }
 
 .tanstack-grid__filter-menu-title,
@@ -690,6 +719,13 @@ select {
   opacity: 0.55;
 }
 
+.tanstack-grid__filter-menu-actions .tanstack-grid__filter-menu-action--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 .tanstack-grid__filter-condition {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -707,10 +743,10 @@ select {
 
 .tanstack-grid__filter-values > input {
   width: 100%;
-  min-height: 38px;
-  padding: 8px 10px;
+  min-height: 42px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--surface-strong);
   color: var(--text);
 }
@@ -779,26 +815,72 @@ select {
   table-layout: fixed;
 }
 
-.tanstack-grid__table th,
-.tanstack-grid__table td {
-  height: var(--tanstack-row-height, auto);
-  padding: var(--tanstack-cell-padding-y, 16px) 18px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
 .tanstack-grid__table th {
+  position: relative;
+  height: auto;
+  padding: 10px 18px;
+  text-align: left;
+  border-bottom: var(--tanstack-row-divider-width, 1px) solid var(--border);
   background: var(--surface-muted);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--text-muted);
+  vertical-align: middle;
+}
+
+.tanstack-grid__table td {
+  height: var(--tanstack-row-height, auto);
+  padding: var(--tanstack-cell-padding-y, 16px) 18px;
+  text-align: left;
+  border-bottom: var(--tanstack-row-divider-width, 1px) solid var(--border);
+}
+
+.tanstack-grid__table th:not(:last-child),
+.tanstack-grid__table td:not(:last-child) {
+  border-right: var(--tanstack-column-divider-width, 0) solid var(--border);
+}
+
+.tanstack-grid__table th:first-child,
+.tanstack-grid__table td:first-child {
+  padding-inline: 8px;
+  text-align: center;
+}
+
+.tanstack-grid__table th:first-child .tanstack-grid__header-content,
+.tanstack-grid__table td:first-child .tanstack-grid__cell-content {
+  justify-content: center;
+}
+
+.tanstack-grid__table th:first-child .tanstack-grid__header-filter-slot {
+  display: none;
+}
+
+.tanstack-grid__header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+  min-width: 0;
+}
+
+.tanstack-grid__header-filter-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  width: 18px;
+  min-width: 18px;
+  min-height: 18px;
 }
 
 .tanstack-grid__header-button {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
   padding: 0;
   border: 0;
   background: transparent;
@@ -806,8 +888,68 @@ select {
   cursor: pointer;
 }
 
-.tanstack-grid__sort-indicator {
-  color: var(--accent);
+.tanstack-grid__header-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tanstack-grid__filter-trigger--icon:hover,
+.tanstack-grid__filter-trigger--icon:focus-visible {
+  color: var(--text);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tanstack-grid__filter-trigger--icon.tanstack-grid__filter-trigger--active:hover,
+.tanstack-grid__filter-trigger--icon.tanstack-grid__filter-trigger--active:focus-visible {
+  color: var(--accent-strong);
+}
+.tanstack-grid__column-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.tanstack-grid__column-resizer::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 0.16s ease;
+}
+
+.tanstack-grid__column-resizer:hover::after,
+.tanstack-grid__header-cell--resizing .tanstack-grid__column-resizer::after {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.tanstack-grid__header-tooltip .ant-tooltip-inner {
+  max-width: 420px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.tanstack-grid__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .tanstack-grid__row--selected td {

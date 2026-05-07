@@ -40,6 +40,16 @@ export function isAdvancedFilterActive(value) {
   );
 }
 
+export function isAdvancedFilterConfigured(value) {
+  const filterValue = normalizeAdvancedFilterValue(value);
+
+  return (
+    filterValue.selectedValues.length > 0 ||
+    filterValue.operator !== getEmptyAdvancedFilterValue().operator ||
+    filterValue.query.trim().length > 0
+  );
+}
+
 export function buildColumnUniqueValues(rows, columnId) {
   return [...new Set(rows.map((row) => String(row[columnId] ?? '')))].sort((first, second) =>
     first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' }),
@@ -69,6 +79,10 @@ export function advancedColumnFilterFn(row, columnId, filterValue) {
   const textValue = String(rawValue ?? '');
   const normalizedValue = getComparableFilterText(textValue);
   const normalizedQuery = getComparableFilterText(normalizedFilter.query);
+
+  if (!isAdvancedFilterActive(normalizedFilter)) {
+    return true;
+  }
 
   if (normalizedFilter.selectedValues.length > 0 && !normalizedFilter.selectedValues.includes(textValue)) {
     return false;
@@ -122,14 +136,15 @@ export function normalizeFilterState(filterState, nextDefaultColumnOrder = []) {
           id: filter.id,
           value: normalizeAdvancedFilterValue(filter.value),
         }))
-        .filter((filter) => isAdvancedFilterActive(filter.value))
+        .filter((filter) => isAdvancedFilterConfigured(filter.value))
     : [];
   const globalFilter = String(filterState?.globalFilter ?? '').trim();
+  const activeColumnFilters = columnFilters.filter((filter) => isAdvancedFilterActive(filter.value));
 
   return {
     columnFilters,
     globalFilter,
-    showFilters: Boolean(filterState?.showFilters) || columnFilters.length > 0,
+    showFilters: Boolean(filterState?.showFilters) || activeColumnFilters.length > 0,
   };
 }
 

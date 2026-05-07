@@ -7,11 +7,12 @@ import { GridColumnsModal } from './components/GridColumnsModal';
 import { GridFooter } from './components/GridFooter';
 import { GridTemplateEditorModal } from './components/GridTemplateEditorModal';
 import { buildGridFooterButtons } from './components/buildGridFooterButtons';
-import { defaultAggregationLabels, exportableFieldIds, pageSizeChoices, rowDensityConfigs } from './lib/tableConfig';
+import { defaultAggregationLabels, exportableFieldIds, MIN_COLUMN_WIDTH, pageSizeChoices, rowDensityConfigs } from './lib/tableConfig';
 import { getAggregationColumnOptions, getColumnAggregates } from './lib/tableAggregation';
 import {
   getEmptyAdvancedFilterValue,
   isAdvancedFilterActive,
+  isAdvancedFilterConfigured,
   normalizeAdvancedFilterValue,
 } from './lib/tableFilters';
 import {
@@ -43,7 +44,6 @@ import {
   useSelectionReport,
 } from './hooks/tableHooks';
 import {
-  TanStackTableFiltersPanel,
   TanStackTableSummaryPanel,
   TanStackTableToolbar,
 } from './components/TanStackTablePanels';
@@ -86,6 +86,8 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   onSearchPropsChange,
   onSelectionChange,
   rows: localRows = initialRows,
+  showColumnDividers = true,
+  showRowDividers = true,
   tableProps = {},
   tableWrapperProps = {},
   transformColumnsFn,
@@ -162,6 +164,12 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     setTableData(Array.isArray(localRows) ? localRows : []);
   }, [localRows]);
 
+  useEffect(() => {
+    if (!showFilters) {
+      setOpenFilterColumnId('');
+    }
+  }, [showFilters]);
+
   useResetPaginationOnFilterChange({ columnFilters, globalFilter, setPagination });
   useDismissibleLayer(contextMenu, () => setContextMenu(null));
 
@@ -169,9 +177,11 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
     () => [
       {
         id: 'select',
+        enableResizing: false,
         enableHiding: false,
         enableColumnFilter: false,
         enableSorting: false,
+        minSize: currentDefaultColumnSizing.select,
         size: currentDefaultColumnSizing.select,
         header: ({ table }) =>
           selectionMode === 'multi' ? (
@@ -233,6 +243,10 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
   const table = useReactTable({
     columns,
     data: tableData,
+    columnResizeMode: 'onChange',
+    defaultColumn: {
+      minSize: MIN_COLUMN_WIDTH,
+    },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -359,14 +373,14 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       selectedValues: [String(value ?? '')],
     });
 
-    column?.setFilterValue(isAdvancedFilterActive(normalizedValue) ? normalizedValue : undefined);
+    column?.setFilterValue(isAdvancedFilterConfigured(normalizedValue) ? normalizedValue : undefined);
   }
 
   function updateAdvancedColumnFilter(columnId, filterValue) {
     const column = table.getColumn(columnId);
     const normalizedValue = normalizeAdvancedFilterValue(filterValue);
 
-    column?.setFilterValue(isAdvancedFilterActive(normalizedValue) ? normalizedValue : undefined);
+    column?.setFilterValue(isAdvancedFilterConfigured(normalizedValue) ? normalizedValue : undefined);
   }
 
   function clearAdvancedColumnFilter(columnId) {
@@ -466,6 +480,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
 
   function updateColumnWidth(columnId, width) {
     const numericWidth = Number(width);
+    const minimumWidth = columnId === 'select' ? currentDefaultColumnSizing.select : MIN_COLUMN_WIDTH;
 
     if (!Number.isFinite(numericWidth)) {
       return;
@@ -473,12 +488,13 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
 
     setColumnSizing((currentSizing) => ({
       ...currentSizing,
-      [columnId]: Math.max(80, numericWidth),
+      [columnId]: Math.max(minimumWidth, numericWidth),
     }));
   }
 
   function updateDraftColumnWidth(columnId, width) {
     const numericWidth = Number(width);
+    const minimumWidth = columnId === 'select' ? currentDefaultColumnSizing.select : MIN_COLUMN_WIDTH;
 
     if (!Number.isFinite(numericWidth)) {
       return;
@@ -488,7 +504,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       ...currentDraft,
       columnSizing: {
         ...currentDraft.columnSizing,
-        [columnId]: Math.max(80, numericWidth),
+        [columnId]: Math.max(minimumWidth, numericWidth),
       },
     }));
   }
@@ -645,7 +661,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       (length, row) => Math.max(length, String(row[columnId] ?? '').length),
       String(headerText).length,
     );
-    const measuredWidth = Math.min(300, Math.max(96, longestTextLength * 9 + 48));
+    const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, longestTextLength * 9 + 48));
 
     updateColumnWidth(columnId, measuredWidth);
   }
@@ -671,7 +687,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
 
         return {
           ...widths,
-          [columnId]: Math.max(72, Math.round(headerCell.getBoundingClientRect().width)),
+          [columnId]: Math.max(MIN_COLUMN_WIDTH, Math.round(headerCell.getBoundingClientRect().width)),
         };
       },
       {},
@@ -839,6 +855,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
         onSelect: () => {
           updateColumnFilter(menuState.columnId, menuState.value);
           setShowFilters(true);
+          setOpenFilterColumnId(menuState.columnId);
         },
       },
       {
@@ -970,7 +987,7 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
       canMoveDown: index < draftDataColumnIds.length - 1,
       canMoveUp: index > 0,
       disabled: !column.getCanHide(),
-      minWidth: 80,
+      minWidth: MIN_COLUMN_WIDTH,
       onChange: (checked) =>
         setColumnSettingsDraft((currentDraft) => ({
           ...currentDraft,
@@ -1110,19 +1127,6 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
           />
         ) : null}
 
-        {showFilters ? (
-          <TanStackTableFiltersPanel
-            activeColumnFilters={activeColumnFilters}
-            columns={table.getVisibleLeafColumns().filter((column) => column.id !== 'select')}
-            onClearAdvancedColumnFilter={clearAdvancedColumnFilter}
-            onClearColumnFilters={clearColumnFilters}
-            onToggleColumn={setOpenFilterColumnId}
-            onUpdateAdvancedColumnFilter={updateAdvancedColumnFilter}
-            openFilterColumnId={openFilterColumnId}
-            rows={tableData}
-          />
-        ) : null}
-
         {showSummary ? (
           <TanStackTableSummaryPanel
             aggregateItems={aggregateItems}
@@ -1142,11 +1146,19 @@ const TanStackTablePreviewContent = forwardRef(function TanStackTablePreviewCont
           getRowProps={getRowProps}
           lastDoubleClickedRow={lastDoubleClickedRow}
           onActivateRow={activateRow}
+          onClearAdvancedColumnFilter={clearAdvancedColumnFilter}
           onOpenCellContextMenu={openCellContextMenu}
           onOpenHeaderContextMenu={openHeaderContextMenu}
+          onToggleFilterColumn={setOpenFilterColumnId}
+          onUpdateAdvancedColumnFilter={updateAdvancedColumnFilter}
+          openFilterColumnId={openFilterColumnId}
           presentationRules={presentationRules}
           rowDensity={rowDensity}
           rowDensityConfig={rowDensityConfig}
+          rows={tableData}
+          showColumnDividers={showColumnDividers}
+          showFilters={showFilters}
+          showRowDividers={showRowDividers}
           table={table}
           tableProps={tableProps}
           tableWrapRef={tableWrapRef}

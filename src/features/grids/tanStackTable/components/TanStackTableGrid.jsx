@@ -1,5 +1,5 @@
 import { flexRender } from '@tanstack/react-table';
-import { Empty } from 'antd';
+import { Empty, Tooltip } from 'antd';
 import {
   getCellValue,
   getMatchingPresentationRule,
@@ -8,7 +8,25 @@ import {
   getPresentationTooltip,
 } from '../lib/tablePresentationRules';
 import { callOptionalHandler, getResolvedProps, mergeClassNames } from '../lib/tableUtils';
-import { renderPresentationCellContent } from './TanStackTableComponents';
+import { AdvancedColumnFilterButton, renderPresentationCellContent } from './TanStackTableComponents';
+
+function getHeaderLabelTitle(header) {
+  return typeof header.column.columnDef.header === 'string' ? header.column.columnDef.header : undefined;
+}
+
+function wrapHeaderLabelWithTooltip(content, header) {
+  const headerLabelTitle = getHeaderLabelTitle(header);
+
+  if (!headerLabelTitle) {
+    return content;
+  }
+
+  return (
+    <Tooltip overlayClassName="tanstack-grid__header-tooltip" placement="topLeft" title={headerLabelTitle} trigger={['hover', 'focus']}>
+      {content}
+    </Tooltip>
+  );
+}
 
 export function TanStackTableGrid({
   getCellProps,
@@ -16,11 +34,19 @@ export function TanStackTableGrid({
   getRowProps,
   lastDoubleClickedRow,
   onActivateRow,
+  onClearAdvancedColumnFilter,
   onOpenCellContextMenu,
   onOpenHeaderContextMenu,
+  onToggleFilterColumn,
+  onUpdateAdvancedColumnFilter,
+  openFilterColumnId,
   presentationRules,
   rowDensity,
   rowDensityConfig,
+  rows,
+  showColumnDividers,
+  showFilters,
+  showRowDividers,
   table,
   tableProps = {},
   tableWrapRef,
@@ -44,8 +70,10 @@ export function TanStackTableGrid({
       ref={tableWrapRef}
       style={{
         '--tanstack-cell-padding-y': rowDensityConfig.cellPaddingY,
+        '--tanstack-column-divider-width': showColumnDividers ? '1px' : '0',
         '--tanstack-editor-gap': rowDensityConfig.editorGap,
         '--tanstack-editor-height': rowDensityConfig.editorHeight,
+        '--tanstack-row-divider-width': showRowDividers ? '1px' : '0',
         '--tanstack-row-height': `${rowDensityConfig.rowHeight}px`,
         ...tableWrapperStyle,
       }}
@@ -60,6 +88,8 @@ export function TanStackTableGrid({
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
                 const canSort = header.column.getCanSort();
+                const canFilter = header.column.getCanFilter();
+                const canResize = header.column.getCanResize();
                 const sortDirection = header.column.getIsSorted();
                 const headerPresentationRule = getMatchingPresentationRule(presentationRules, {
                   columnId: header.column.id,
@@ -78,6 +108,7 @@ export function TanStackTableGrid({
                     {...headerRestProps}
                     className={mergeClassNames(
                       getPresentationClassName('header', headerPresentationRule),
+                      header.column.getIsResizing() ? 'tanstack-grid__header-cell--resizing' : '',
                       headerClassName,
                     )}
                     data-column-id={header.column.id}
@@ -96,19 +127,59 @@ export function TanStackTableGrid({
                     }}
                     title={getPresentationTooltip(headerPresentationRule)}
                   >
-                    {header.isPlaceholder ? null : canSort ? (
-                      <button
-                        className="tanstack-grid__header-button"
-                        onClick={header.column.getToggleSortingHandler()}
-                        type="button"
-                      >
-                        <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
-                        <span className="tanstack-grid__sort-indicator">
-                          {sortDirection === 'asc' ? '↑' : sortDirection === 'desc' ? '↓' : '↕'}
-                        </span>
-                      </button>
-                    ) : (
-                      flexRender(header.column.columnDef.header, header.getContext())
+                    {header.isPlaceholder ? null : (
+                      <>
+                        <div className="tanstack-grid__header-content">
+                          {wrapHeaderLabelWithTooltip(
+                            canSort ? (
+                              <button
+                                className="tanstack-grid__header-button"
+                                onClick={header.column.getToggleSortingHandler()}
+                                type="button"
+                              >
+                                <span className="tanstack-grid__header-label">
+                                  {flexRender(header.column.columnDef.header, header.getContext())}
+                                </span>
+                                <span className="tanstack-grid__sort-indicator">
+                                  {sortDirection === 'asc' ? '↑' : sortDirection === 'desc' ? '↓' : '↕'}
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="tanstack-grid__header-label">
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                              </span>
+                            ),
+                            header,
+                          )}
+
+                          {showFilters && canFilter ? (
+                            <span className="tanstack-grid__header-filter-slot">
+                              <AdvancedColumnFilterButton
+                                column={header.column}
+                                isOpen={openFilterColumnId === header.column.id}
+                                onClear={onClearAdvancedColumnFilter}
+                                onClose={() => onToggleFilterColumn('')}
+                                onFilterChange={onUpdateAdvancedColumnFilter}
+                                onToggle={() =>
+                                  onToggleFilterColumn(openFilterColumnId === header.column.id ? '' : header.column.id)
+                                }
+                                rows={rows}
+                                triggerVariant="icon"
+                              />
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {canResize ? (
+                          <div
+                            aria-hidden="true"
+                            className="tanstack-grid__column-resizer"
+                            onDoubleClick={(event) => event.stopPropagation()}
+                            onMouseDown={header.getResizeHandler()}
+                            onTouchStart={header.getResizeHandler()}
+                          />
+                        ) : null}
+                      </>
                     )}
                   </th>
                 );
