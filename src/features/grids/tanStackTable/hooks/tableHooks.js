@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildColumnSettingsState,
   fetchColumnsFromApi,
@@ -218,11 +218,14 @@ export function useDismissibleLayer(layer, dismiss) {
 export function useAutoPageSize({
   autoPageSize,
   matchingRowsLength,
+  onPageSizeChange,
   rowDensityConfig,
-  setPagination,
   showAllRows,
   tableWrapRef,
 }) {
+  const onPageSizeChangeRef = useRef(onPageSizeChange);
+  onPageSizeChangeRef.current = onPageSizeChange;
+
   useEffect(() => {
     if (!autoPageSize || showAllRows) {
       return undefined;
@@ -251,15 +254,7 @@ export function useAutoPageSize({
         ),
       );
 
-      setPagination((current) =>
-        current.pageSize === nextPageSize && current.pageIndex === 0
-          ? current
-          : {
-              ...current,
-              pageIndex: 0,
-              pageSize: nextPageSize,
-            },
-      );
+      onPageSizeChangeRef.current(nextPageSize);
     }
 
     updateAutoPageSize();
@@ -273,25 +268,28 @@ export function useAutoPageSize({
       resizeObserver?.disconnect();
       window.removeEventListener('resize', updateAutoPageSize);
     };
-  }, [autoPageSize, matchingRowsLength, rowDensityConfig.rowHeight, setPagination, showAllRows, tableWrapRef]);
+  }, [autoPageSize, matchingRowsLength, rowDensityConfig.rowHeight, showAllRows, tableWrapRef]);
 }
 
 export function useSelectionReport({ onSelectionChange, rowSelection, selectionMode, table, tableData }) {
   const [selectedRowsReport, setSelectedRowsReport] = useState([]);
+
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
 
   useEffect(() => {
     const selectedRowModels = table.getSelectedRowModel().rows;
     const selectedRowIds = selectedRowModels.map((row) => row.original.id);
 
     setSelectedRowsReport(selectedRowIds);
-    onSelectionChange?.(
+    onSelectionChangeRef.current?.(
       selectedRowModels.map((row) => row.original),
       {
         ids: selectedRowIds,
         table,
       },
     );
-  }, [onSelectionChange, rowSelection, selectionMode, table, tableData]);
+  }, [rowSelection, selectionMode, table, tableData]);
 
   return selectedRowsReport;
 }
