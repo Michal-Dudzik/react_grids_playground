@@ -77,6 +77,7 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
   onSelectionChange,
   onShowAllRowsChange,
   pageSize: controlledPageSize,
+  rounded = true,
   rowDensity: controlledRowDensity,
   rows: localRows = initialRows,
   selectionMode: controlledSelectionMode,
@@ -531,7 +532,7 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
   const tableLoading = loading || apiColumnsLoading;
 
   return (
-    <div className="tanstack-grid">
+    <div className={`tanstack-grid${rounded ? '' : ' tanstack-grid--square'}`}>
       <div aria-busy={tableLoading} className="tanstack-grid__surface">
         {tableLoading ? (
           <div className="tanstack-grid__loading-overlay" role="status">

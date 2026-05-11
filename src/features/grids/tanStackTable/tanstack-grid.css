@@ -106,6 +106,10 @@
   background: var(--surface-strong);
 }
 
+.tanstack-grid--square .tanstack-grid__surface {
+  border-radius: 0;
+}
+
 .tanstack-grid__loading-overlay {
   position: absolute;
   inset: 0;
