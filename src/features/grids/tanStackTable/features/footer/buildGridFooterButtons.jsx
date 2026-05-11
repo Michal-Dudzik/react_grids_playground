@@ -6,8 +6,8 @@ import {
   FilterOutlined,
   PrinterOutlined,
   SettingOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
-import { BarChartOutlined } from '@ant-design/icons';
 
 export function buildGridFooterButtons({
   showFilter = false,
@@ -31,46 +31,46 @@ export function buildGridFooterButtons({
   footerButtons = [],
 }) {
   const defaults = [
-    showFilter && {
+    showFilter && onToggleFilter && {
       key: 'toggle-filter',
       className: filtering ? 'active' : '',
       icon: filtering ? <FilterFilled /> : <FilterOutlined />,
       onClick: onToggleFilter,
       title: filtering ? 'Hide filters' : 'Show filters',
     },
-    showSummary && {
+    showSummary && onToggleSummary && {
       key: 'toggle-summary',
       className: summaryVisible ? 'active' : '',
       icon: <BarChartOutlined />,
       onClick: onToggleSummary,
       title: summaryVisible ? 'Hide summary' : 'Show summary',
     },
-    showExportPdf && {
+    showExportPdf && onExportPdf && {
       key: 'export-pdf',
       icon: <FilePdfOutlined />,
       onClick: onExportPdf,
       title: 'Export PDF',
     },
-    showPrint && {
+    showPrint && onPrint && {
       key: 'print',
       icon: <PrinterOutlined />,
       onClick: onPrint,
       title: 'Print',
     },
-    showExportExcel && {
+    showExportExcel && onExportExcel && {
       key: 'export-excel',
       icon: <FileExcelOutlined />,
       onClick: onExportExcel,
       title: 'Export to Excel',
     },
-    showColumnsSettings && {
+    showColumnsSettings && onColumnsSettings && {
       key: 'columns-settings',
       className: columnsSettingsActive ? 'active' : '',
       icon: <SettingOutlined />,
       onClick: onColumnsSettings,
       title: 'Column settings',
     },
-    showPresentationSettings && {
+    showPresentationSettings && onPresentationSettings && {
       key: 'presentation-settings',
       className: presentationSettingsActive ? 'active' : '',
       icon: <BgColorsOutlined />,
@@ -79,11 +79,19 @@ export function buildGridFooterButtons({
     },
   ].filter(Boolean);
 
+  if (process.env.NODE_ENV !== 'production') {
+    footerButtons.forEach((customButton) => {
+      if (!customButton.key) {
+        console.warn('[buildGridFooterButtons] A custom footer button is missing a required `key` property.', customButton);
+      }
+    });
+  }
+
   const customButtonsByKey = new Map(footerButtons.map((customButton) => [customButton.key, customButton]));
   const defaultButtonKeys = new Set(defaults.map((defaultButton) => defaultButton.key));
 
   return [
-    ...defaults.map((defaultButton) => customButtonsByKey.get(defaultButton.key) ?? defaultButton),
+    ...defaults.map((defaultButton) => ({ ...defaultButton, ...customButtonsByKey.get(defaultButton.key) })),
     ...footerButtons.filter((customButton) => !defaultButtonKeys.has(customButton.key)),
   ];
 }

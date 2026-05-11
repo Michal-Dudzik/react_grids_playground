@@ -1,7 +1,7 @@
 import { Input } from 'antd';
 
 export function GridSearchBar({
-  inputValue,
+  inputValue = '',
   onInputChange,
   onSearch,
   onClear,
@@ -16,7 +16,7 @@ export function GridSearchBar({
       loading={isSearching}
       onChange={(event) => onInputChange?.(event.target.value)}
       onClear={onClear}
-      onSearch={(value) => onSearch?.(value)}
+      onSearch={(value, _event, info) => info?.source !== 'clear' && onSearch?.(value)}
       placeholder={placeholder}
       value={inputValue}
     />

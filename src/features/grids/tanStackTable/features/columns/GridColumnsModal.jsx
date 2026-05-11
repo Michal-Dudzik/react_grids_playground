@@ -16,7 +16,8 @@ import {
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
-import { MIN_COLUMN_WIDTH } from '../lib/tableConfig';
+import clsx from 'clsx';
+import { MIN_COLUMN_WIDTH } from '../../lib/tableConfig';
 
 function GridColumnsModalRow({ column, dragHandleProps }) {
   return (
@@ -85,9 +86,9 @@ function SortableGridColumnsModalRow({ column }) {
 
   return (
     <div
-      className={`shared-grid-columns-modal__row ${
-        isDragging ? 'shared-grid-columns-modal__row--dragging' : ''
-      }`.trim()}
+      className={clsx('shared-grid-columns-modal__row', {
+        'shared-grid-columns-modal__row--dragging': isDragging,
+      })}
       ref={setNodeRef}
       style={style}
     >
@@ -133,12 +134,6 @@ export function GridColumnsModal({
 
     onReorderColumns?.(event.active.id, event.over.id);
   }
-
-  const rows = columns.map((column) => (
-    <div className="shared-grid-columns-modal__row" key={column.key}>
-      <GridColumnsModalRow column={column} />
-    </div>
-  ));
 
   function handleCancel() {
     onClose?.();
@@ -196,7 +191,11 @@ export function GridColumnsModal({
             </SortableContext>
           </DndContext>
         ) : (
-          rows
+          columns.map((column) => (
+            <div className="shared-grid-columns-modal__row" key={column.key}>
+              <GridColumnsModalRow column={column} />
+            </div>
+          ))
         )}
       </Space>
     </Modal>

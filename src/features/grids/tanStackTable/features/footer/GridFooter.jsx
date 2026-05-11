@@ -1,5 +1,5 @@
 import { Button, Divider, Pagination, Select, Space, Tooltip } from 'antd';
-import { GridSearchBar } from './GridSearchBar';
+import { GridSearchBar } from '../search/GridSearchBar';
 
 function GridFooterAction({ action }) {
   if (action.isCustomComponent && action.component) {
@@ -33,8 +33,6 @@ export function GridFooter({
   total = 0,
   pageSizeOptions = [],
   onPageChange,
-  onPreviousPage,
-  onNextPage,
   onPageSizeChange,
   pageSizeDisabled = false,
   searchProps,
@@ -54,20 +52,8 @@ export function GridFooter({
           <Pagination
             className="shared-grid-footer__pagination"
             current={currentPage}
-            onChange={(page) => {
-              if (onPageChange) {
-                onPageChange(page);
-                return;
-              }
-
-              if (page < currentPage) {
-                onPreviousPage?.();
-              }
-
-              if (page > currentPage) {
-                onNextPage?.();
-              }
-            }}
+            disabled={!onPageChange}
+            onChange={(page) => onPageChange(page)}
             pageSize={pageSize}
             showSizeChanger={false}
             simple
@@ -100,9 +86,12 @@ export function GridFooter({
 
         {buttons.length > 0 ? (
           <Space className="shared-grid-footer__actions" size={8}>
-            {buttons.map((action, index) => (
-              <GridFooterAction action={action} key={action.key ?? index} />
-            ))}
+            {buttons.map((action) => {
+              if (process.env.NODE_ENV !== 'production' && !action.key) {
+                console.warn('[GridFooter] Footer action is missing a stable `key` property.', action);
+              }
+              return <GridFooterAction action={action} key={action.key} />;
+            })}
           </Space>
         ) : null}
       </div>

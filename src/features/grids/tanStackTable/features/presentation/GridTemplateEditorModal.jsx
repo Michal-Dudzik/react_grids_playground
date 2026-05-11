@@ -1,6 +1,6 @@
 import { DeleteOutlined, HolderOutlined, InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Alert, Button, Empty, Input, Modal, Select, Space, Switch, Tooltip } from 'antd';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -65,8 +65,56 @@ function shouldShowValueInput(operator, target) {
   return target !== 'header' && operator !== 'empty' && operator !== 'notEmpty';
 }
 
-function normalizeColor(value) {
-  return value || '#000000';
+function ColorField({ colorKey, label, onUpdateRule, ruleId, value }) {
+  const [pending, setPending] = useState(null);
+
+  if (pending !== null) {
+    return (
+      <div className="shared-grid-template-editor__color-field">
+        <input
+          aria-label={label}
+          onChange={(e) => setPending(e.target.value)}
+          type="color"
+          value={pending}
+        />
+        <Button
+          onClick={() => {
+            onUpdateRule?.(ruleId, { [colorKey]: pending });
+            setPending(null);
+          }}
+          size="small"
+          type="primary"
+        >
+          OK
+        </Button>
+        <Button onClick={() => setPending(null)} size="small">
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  if (!value) {
+    return (
+      <div className="shared-grid-template-editor__color-field">
+        <Button onClick={() => setPending('#000000')} size="small">
+          Set custom
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shared-grid-template-editor__color-field">
+      <input
+        aria-label={label}
+        onChange={(e) => onUpdateRule?.(ruleId, { [colorKey]: e.target.value })}
+        type="color"
+        value={value}
+      />
+      <Button onClick={() => onUpdateRule?.(ruleId, { [colorKey]: '' })}>Auto</Button>
+    </div>
+  );
 }
 
 function getOptionLabel(options, value) {
@@ -98,9 +146,10 @@ function getPreviewStyle(rule) {
 }
 
 function RulePreview({ rule }) {
+  const cellDisplay = rule.cellDisplay ?? 'value';
   const previewText = rule.value || 'Example';
 
-  if (rule.target !== 'cell' || rule.cellDisplay === 'value') {
+  if (rule.target !== 'cell' || cellDisplay === 'value') {
     return (
       <div className="shared-grid-template-editor__preview-value" style={getPreviewStyle(rule)}>
         {previewText}
@@ -109,11 +158,11 @@ function RulePreview({ rule }) {
     );
   }
 
-  if (rule.cellDisplay === 'dot') {
+  if (cellDisplay === 'dot') {
     return <span className="shared-grid-template-editor__preview-dot shared-grid-template-editor__preview-dot--large" style={getPreviewStyle(rule)} />;
   }
 
-  if (rule.cellDisplay === 'pill') {
+  if (cellDisplay === 'pill') {
     return (
       <span className="shared-grid-template-editor__preview-pill" style={getPreviewStyle(rule)}>
         {previewText}
@@ -121,7 +170,7 @@ function RulePreview({ rule }) {
     );
   }
 
-  if (rule.cellDisplay === 'booleanIcon') {
+  if (cellDisplay === 'booleanIcon') {
     return (
       <span className="shared-grid-template-editor__preview-mark" style={getPreviewStyle(rule)}>
         ✓ / ×
@@ -131,7 +180,7 @@ function RulePreview({ rule }) {
 
   return (
     <span className="shared-grid-template-editor__preview-mark" style={getPreviewStyle(rule)}>
-      {rule.cellDisplay === 'cross' ? '×' : '✓'}
+      {cellDisplay === 'cross' ? '×' : '✓'}
     </span>
   );
 }
@@ -228,7 +277,7 @@ export function GridTemplateEditorModal({
 
   return (
     <Modal footer={null} onCancel={onClose} open={open} title="Presentation settings" width={1080}>
-      <Space className="shared-grid-modal__stack" orientation="vertical" size={16}>
+      <Space className="shared-grid-modal__stack" direction="vertical" size={16}>
         <Alert
           icon={<InfoCircleOutlined />}
           message="Rules run from top to bottom. Drag cards to change which matching rule wins first."
@@ -269,7 +318,7 @@ export function GridTemplateEditorModal({
                             size="small"
                           />
                           <Input
-                            aria-label="Rule name"
+                            aria-label={`Rule name ${rule.id}`}
                             onChange={(event) => onUpdateRule?.(rule.id, { name: event.target.value })}
                             value={rule.name}
                           />
@@ -348,38 +397,24 @@ export function GridTemplateEditorModal({
 
                                 <label>
                                   <span>Text</span>
-                                  <div className="shared-grid-template-editor__color-field">
-                                    <input
-                                      aria-label="Text color"
-                                      onChange={(event) => onUpdateRule?.(rule.id, { textColor: event.target.value })}
-                                      type="color"
-                                      value={normalizeColor(rule.textColor)}
-                                    />
-                                    <Button
-                                      disabled={!rule.textColor}
-                                      onClick={() => onUpdateRule?.(rule.id, { textColor: '' })}
-                                    >
-                                      Auto
-                                    </Button>
-                                  </div>
+                                  <ColorField
+                                    colorKey="textColor"
+                                    label="Text color"
+                                    onUpdateRule={onUpdateRule}
+                                    ruleId={rule.id}
+                                    value={rule.textColor}
+                                  />
                                 </label>
 
                                 <label>
                                   <span>Background</span>
-                                  <div className="shared-grid-template-editor__color-field">
-                                    <input
-                                      aria-label="Background color"
-                                      onChange={(event) => onUpdateRule?.(rule.id, { backgroundColor: event.target.value })}
-                                      type="color"
-                                      value={normalizeColor(rule.backgroundColor)}
-                                    />
-                                    <Button
-                                      disabled={!rule.backgroundColor}
-                                      onClick={() => onUpdateRule?.(rule.id, { backgroundColor: '' })}
-                                    >
-                                      Auto
-                                    </Button>
-                                  </div>
+                                  <ColorField
+                                    colorKey="backgroundColor"
+                                    label="Background color"
+                                    onUpdateRule={onUpdateRule}
+                                    ruleId={rule.id}
+                                    value={rule.backgroundColor}
+                                  />
                                 </label>
 
                                 {rule.target === 'cell' ? (

@@ -1,4 +1,4 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Alert } from 'antd';
 import { FilterFilled, FilterOutlined } from '@ant-design/icons';
@@ -508,13 +508,36 @@ export function ContextMenuItemButton({ item, onSelect }) {
   );
 }
 
-export function ContextMenu({ items, onClose, onSelect, state }) {
+export function ContextMenu({ items, onClose, onHeightChange, onSelect, state }) {
+  const menuRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el || !onHeightChange) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const height = Math.ceil(
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height,
+      );
+      onHeightChange(height);
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+    // Re-observe each time the menu opens (state identity changes); intentionally
+    // omitting onHeightChange to avoid reconnecting on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
   if (!state) {
     return null;
   }
 
   return createPortal(
     <div
+      ref={menuRef}
       className={`tanstack-grid__context-menu ${
         state.submenuPlacement === 'left' ? 'tanstack-grid__context-menu--submenu-left' : ''
       }`.trim()}

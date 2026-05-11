@@ -1,0 +1,327 @@
+import { useMemo, useState } from 'react';
+import {
+  buildColumnPreferencesPayload,
+  buildColumnSettingsState,
+  normalizeColumnOrder,
+} from '../../lib/tableColumns';
+import { MIN_COLUMN_WIDTH } from '../../lib/tableConfig';
+import { reorderItems } from '../../lib/tableUtils';
+
+function getColumnLabel(column) {
+  return typeof column?.columnDef.header === 'string' ? column.columnDef.header : column?.id;
+}
+
+export function useGridColumnSettings({
+  appId,
+  columnOrder,
+  columnSettingsDraft,
+  columnSizing,
+  columnVisibility,
+  currentDefaultColumnOrder,
+  currentDefaultColumnSizing,
+  dataColumns,
+  gridId,
+  onSaveColumnPreferences,
+  setColumnOrder,
+  setColumnSettingsDraft,
+  setColumnSizing,
+  setColumnVisibility,
+  table,
+  tableData,
+  tableWrapRef,
+}) {
+  const [columnsModalOpen, setColumnsModalOpen] = useState(false);
+  const [columnSettingsSaving, setColumnSettingsSaving] = useState(false);
+  const [columnSettingsError, setColumnSettingsError] = useState('');
+
+  const orderedDataColumnIds = useMemo(
+    () =>
+      normalizeColumnOrder(columnOrder, currentDefaultColumnOrder).filter((columnId) => columnId !== 'select'),
+    [columnOrder, currentDefaultColumnOrder],
+  );
+
+  function moveColumn(columnId, direction) {
+    setColumnOrder((currentOrder) => {
+      const movableColumnIds = normalizeColumnOrder(currentOrder, currentDefaultColumnOrder).filter(
+        (id) => id !== 'select',
+      );
+      const columnIndex = movableColumnIds.indexOf(columnId);
+      const nextIndex = columnIndex + direction;
+
+      if (columnIndex === -1 || nextIndex < 0 || nextIndex >= movableColumnIds.length) {
+        return currentOrder;
+      }
+
+      const nextOrder = [...movableColumnIds];
+      [nextOrder[columnIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[columnIndex]];
+
+      return ['select', ...nextOrder];
+    });
+  }
+
+  function moveDraftColumn(columnId, direction) {
+    setColumnSettingsDraft((currentDraft) => {
+      const normalizedOrder = normalizeColumnOrder(currentDraft.columnOrder, currentDefaultColumnOrder);
+      const movableColumnIds = normalizedOrder.filter((id) => id !== 'select');
+      const columnIndex = movableColumnIds.indexOf(columnId);
+      const nextIndex = columnIndex + direction;
+
+      if (columnIndex === -1 || nextIndex < 0 || nextIndex >= movableColumnIds.length) {
+        return currentDraft;
+      }
+
+      const nextOrder = [...movableColumnIds];
+      [nextOrder[columnIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[columnIndex]];
+
+      return {
+        ...currentDraft,
+        columnOrder: ['select', ...nextOrder],
+      };
+    });
+  }
+
+  function reorderColumnSettings(activeColumnId, overColumnId) {
+    setColumnSettingsDraft((currentDraft) => ({
+      ...currentDraft,
+      columnOrder: [
+        'select',
+        ...reorderItems(
+          normalizeColumnOrder(currentDraft.columnOrder, currentDefaultColumnOrder).filter(
+            (columnId) => columnId !== 'select',
+          ),
+          activeColumnId,
+          overColumnId,
+        ),
+      ],
+    }));
+  }
+
+  function clampColumnWidth(columnId, width) {
+    const numericWidth = Number(width);
+
+    if (!Number.isFinite(numericWidth)) {
+      return null;
+    }
+
+    const defaultSelectWidth = currentDefaultColumnSizing.select;
+    const minimumWidth =
+      columnId === 'select' && Number.isFinite(defaultSelectWidth) ? defaultSelectWidth : MIN_COLUMN_WIDTH;
+
+    return Math.max(minimumWidth, numericWidth);
+  }
+
+  function updateColumnWidth(columnId, width) {
+    const clamped = clampColumnWidth(columnId, width);
+
+    if (clamped === null) {
+      return;
+    }
+
+    setColumnSizing((currentSizing) => ({
+      ...currentSizing,
+      [columnId]: clamped,
+    }));
+  }
+
+  function updateDraftColumnWidth(columnId, width) {
+    const clamped = clampColumnWidth(columnId, width);
+
+    if (clamped === null) {
+      return;
+    }
+
+    setColumnSettingsDraft((currentDraft) => ({
+      ...currentDraft,
+      columnSizing: {
+        ...currentDraft.columnSizing,
+        [columnId]: clamped,
+      },
+    }));
+  }
+
+  function resetColumnSettings() {
+    setColumnOrder(currentDefaultColumnOrder);
+    setColumnSizing(currentDefaultColumnSizing);
+    setColumnVisibility({});
+  }
+
+  function buildCurrentColumnSettingsDraft() {
+    return buildColumnSettingsState(
+      {
+        columnOrder,
+        columnSizing,
+        columnVisibility,
+      },
+      dataColumns,
+    );
+  }
+
+  function resetColumnSettingsDraft() {
+    setColumnSettingsError('');
+    setColumnSettingsDraft(buildColumnSettingsState({}, dataColumns));
+  }
+
+  function openColumnSettingsModal() {
+    setColumnSettingsDraft(buildCurrentColumnSettingsDraft());
+    setColumnSettingsError('');
+    setColumnsModalOpen(true);
+  }
+
+  function cancelColumnSettings() {
+    setColumnSettingsDraft(buildCurrentColumnSettingsDraft());
+    setColumnSettingsError('');
+    setColumnsModalOpen(false);
+  }
+
+  async function saveColumnSettings() {
+    if (columnSettingsSaving) return;
+
+    const nextColumnSettings = buildColumnSettingsState(columnSettingsDraft, dataColumns);
+    const columnPreferencesPayload = buildColumnPreferencesPayload(nextColumnSettings, dataColumns);
+
+    setColumnSettingsSaving(true);
+    setColumnSettingsError('');
+
+    try {
+      await onSaveColumnPreferences({
+        appId,
+        gridId,
+        payload: columnPreferencesPayload,
+      });
+
+      setColumnOrder(nextColumnSettings.columnOrder);
+      setColumnSizing(nextColumnSettings.columnSizing);
+      setColumnVisibility(nextColumnSettings.columnVisibility);
+      setColumnsModalOpen(false);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      setColumnSettingsError(msg || 'Failed to save column preferences.');
+    } finally {
+      setColumnSettingsSaving(false);
+    }
+  }
+
+  function fitColumnWidth(columnId) {
+    if (columnId === 'select') {
+      updateColumnWidth(columnId, currentDefaultColumnSizing.select);
+      return;
+    }
+
+    const column = table.getColumn(columnId);
+    const headerText = getColumnLabel(column) ?? columnId;
+
+    const canvas = typeof document !== 'undefined' && document.createElement('canvas');
+    const ctx = canvas?.getContext('2d');
+
+    if (ctx) {
+      const tableElement = tableWrapRef?.current;
+      const computedFont =
+        tableElement ? globalThis.getComputedStyle(tableElement).font : '';
+      ctx.font = computedFont || '14px sans-serif';
+
+      const allTexts = [String(headerText), ...tableData.map((row) => String(row[columnId] ?? ''))];
+      const maxTextWidth = allTexts.reduce((max, text) => Math.max(max, ctx.measureText(text).width), 0);
+      const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxTextWidth) + 48));
+      updateColumnWidth(columnId, measuredWidth);
+      return;
+    }
+
+    // Fallback: character-count heuristic when Canvas API is unavailable
+    const longestTextLength = tableData.reduce(
+      (length, row) => Math.max(length, String(row[columnId] ?? '').length),
+      String(headerText).length,
+    );
+    const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, longestTextLength * 9 + 48));
+    updateColumnWidth(columnId, measuredWidth);
+  }
+
+  function fitAllColumnWidths() {
+    currentDefaultColumnOrder.forEach((columnId) => fitColumnWidth(columnId));
+  }
+
+  function readRenderedColumnWidths() {
+    const tableWrapElement = tableWrapRef.current;
+
+    if (!tableWrapElement) {
+      return {};
+    }
+
+    return Array.from(tableWrapElement.querySelectorAll('thead th[data-column-id]')).reduce(
+      (widths, headerCell) => {
+        const columnId = headerCell.getAttribute('data-column-id');
+        widths[columnId] = Math.max(MIN_COLUMN_WIDTH, Math.round(headerCell.getBoundingClientRect().width));
+        return widths;
+      },
+      {},
+    );
+  }
+
+  function syncColumnWidthsFromDom() {
+    const renderedWidths = readRenderedColumnWidths();
+
+    if (Object.keys(renderedWidths).length === 0) {
+      return;
+    }
+
+    setColumnSizing((currentSizing) => ({
+      ...currentSizing,
+      ...renderedWidths,
+    }));
+  }
+
+  const draftDataColumnIds = useMemo(
+    () =>
+      normalizeColumnOrder(columnSettingsDraft.columnOrder, currentDefaultColumnOrder).filter(
+        (columnId) => columnId !== 'select',
+      ),
+    [columnSettingsDraft.columnOrder, currentDefaultColumnOrder],
+  );
+
+  const columnSettingsOptions = useMemo(
+    () =>
+      draftDataColumnIds
+        .map((columnId) => table.getColumn(columnId))
+        .filter(Boolean)
+        .map((column, index) => ({
+          key: column.id,
+          label: getColumnLabel(column),
+          checked: columnSettingsDraft.columnVisibility[column.id] !== false,
+          canMoveDown: index < draftDataColumnIds.length - 1,
+          canMoveUp: index > 0,
+          disabled: !column.getCanHide(),
+          minWidth: MIN_COLUMN_WIDTH,
+          onChange: (checked) =>
+            setColumnSettingsDraft((currentDraft) => ({
+              ...currentDraft,
+              columnVisibility: {
+                ...currentDraft.columnVisibility,
+                [column.id]: checked,
+              },
+            })),
+          onMoveDown: () => moveDraftColumn(column.id, 1),
+          onMoveUp: () => moveDraftColumn(column.id, -1),
+          onWidthChange: (width) => updateDraftColumnWidth(column.id, width),
+          width: columnSettingsDraft.columnSizing[column.id] ?? column.getSize(),
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draftDataColumnIds, columnSettingsDraft.columnVisibility, columnSettingsDraft.columnSizing],
+  );
+
+  return {
+    columnSettingsError,
+    columnSettingsOptions,
+    columnSettingsSaving,
+    columnsModalOpen,
+    fitAllColumnWidths,
+    fitColumnWidth,
+    moveColumn,
+    openColumnSettingsModal,
+    orderedDataColumnIds,
+    reorderColumnSettings,
+    resetColumnSettings,
+    resetColumnSettingsDraft,
+    saveColumnSettings,
+    syncColumnWidthsFromDom,
+    cancelColumnSettings,
+  };
+}

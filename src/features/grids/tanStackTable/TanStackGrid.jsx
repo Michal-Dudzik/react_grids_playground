@@ -1,39 +1,21 @@
 import { getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Dropdown } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
+import { Alert, Button, Dropdown } from 'antd';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import './tanstack-grid.css';
-import { StatusBadge } from '../../demoData/StatusBadge';
-import { GridColumnsModal } from './components/GridColumnsModal';
-import { GridFooter } from './components/GridFooter';
-import { GridTemplateEditorModal } from './components/GridTemplateEditorModal';
-import { buildGridFooterButtons } from './components/buildGridFooterButtons';
-import { defaultAggregationLabels, exportableFieldIds, MIN_COLUMN_WIDTH, pageSizeChoices, rowDensityConfigs } from './lib/tableConfig';
-import { getAggregationColumnOptions, getColumnAggregates } from './lib/tableAggregation';
-import {
-  getEmptyAdvancedFilterValue,
-  isAdvancedFilterActive,
-  isAdvancedFilterConfigured,
-  normalizeAdvancedFilterValue,
-} from './lib/tableFilters';
-import {
-  cloneDefaultPresentationRules,
-  createPresentationRule,
-  getCellValue,
-  normalizePresentationRules,
-} from './lib/tablePresentationRules';
-import {
-  baseColumns,
-  buildColumnPreferencesPayload,
-  buildColumnSettingsState,
-  buildDefaultColumnOrder,
-  buildDefaultColumnSizing,
-  buildTanStackDataColumns,
-  getColumnId,
-  initialRows,
-  normalizeColumnOrder,
-  saveColumnPreferencesToApi,
-} from './lib/tableColumns';
+import { TanStackTableSummaryPanel } from './features/aggregation/TanStackTableSummaryPanel';
+import { GridColumnsModal } from './features/columns/GridColumnsModal';
+import { useGridColumnSettings } from './features/columns/useGridColumnSettings';
+import { useGridColumns } from './features/columns/useGridColumns';
+import { useGridContextMenu } from './features/contextMenu/useGridContextMenu';
+import { useGridExportPrint } from './features/export/useGridExportPrint';
+import { GridFooter } from './features/footer/GridFooter';
+import { buildGridFooterButtons } from './features/footer/buildGridFooterButtons';
+import { GridTemplateEditorModal } from './features/presentation/GridTemplateEditorModal';
+import { useGridPresentation } from './features/presentation/useGridPresentation';
+import { useGridSearch } from './features/search/useGridSearch';
+import { TanStackTableErrorBoundary, ContextMenu } from './components/TanStackTableComponents';
+import { TanStackTableGrid } from './components/TanStackTableGrid';
 import {
   useApiColumns,
   useAutoPageSize,
@@ -44,35 +26,22 @@ import {
   useResetPaginationOnFilterChange,
   useSelectionReport,
 } from './hooks/tableHooks';
-import { TanStackTableSummaryPanel } from './components/TanStackTablePanels';
-import { TanStackTableGrid } from './components/TanStackTableGrid';
+import { getAggregationColumnOptions, getColumnAggregates } from './lib/tableAggregation';
 import {
-  buildCsvContent,
-  buildCsvValue,
-  copyText,
-  downloadCsvFile,
-  normalizeCustomContextMenuItems,
-  openPrintWindow,
-  prepareContextMenuItems,
-  reorderItems,
-} from './lib/tableUtils';
-import { getColumnDisplayText } from './lib/tableDisplay.js';
+  baseColumns,
+  buildDefaultColumnOrder,
+  buildDefaultColumnSizing,
+  buildTanStackDataColumns,
+  initialRows,
+  saveColumnPreferencesToApi,
+} from './lib/tableColumns';
+import { defaultAggregationLabels, exportableFieldIds, MIN_COLUMN_WIDTH, pageSizeChoices, rowDensityConfigs } from './lib/tableConfig';
 import {
-  ContextMenu,
-  EditableCell,
-  TanStackTableErrorBoundary,
-  TableCheckbox,
-  renderHighlightedText,
-} from './components/TanStackTableComponents';
-
-// Must stay in sync with .tanstack-grid__context-menu { width } in tanstack-grid.css
-const CONTEXT_MENU_WIDTH = 248;
-// Worst-case height estimate used to keep the menu inside the viewport before it mounts
-const CONTEXT_MENU_HEIGHT_ESTIMATE = 360;
-
-function resolveNextValue(nextValue, currentValue) {
-  return typeof nextValue === 'function' ? nextValue(currentValue) : nextValue;
-}
+  getEmptyAdvancedFilterValue,
+  isAdvancedFilterActive,
+  isAdvancedFilterConfigured,
+  normalizeAdvancedFilterValue,
+} from './lib/tableFilters';
 
 const TanStackGridContent = forwardRef(function TanStackGridContent({
   aggregationConfig = {},
@@ -122,31 +91,28 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
   const [tableData, setTableData] = useState(() => localRows);
   const [sorting, setSorting] = useState([]);
   const [rowSelection, setRowSelection] = useState({});
-  const [selectionModeState, setSelectionModeState] = useState(initialSelectionMode);
+  const [selectionModeState] = useState(initialSelectionMode);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: controlledPageSize ?? initialPageSize,
   });
-  const [showAllRowsState, setShowAllRowsState] = useState(initialShowAllRows);
-  const [autoPageSizeState, setAutoPageSizeState] = useState(initialAutoPageSize);
-  const [rowDensityState, setRowDensityState] = useState(initialRowDensity);
-  const [editingEnabledState, setEditingEnabledState] = useState(initialEditingEnabled);
+  const [showAllRowsState] = useState(initialShowAllRows);
+  const [autoPageSizeState] = useState(initialAutoPageSize);
+  const [rowDensityState] = useState(initialRowDensity);
+  const [editingEnabledState] = useState(initialEditingEnabled);
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState('page');
   const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
   const [activeRow, setActiveRow] = useState(null);
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null);
   const [openFilterColumnId, setOpenFilterColumnId] = useState('');
-  const [columnsModalOpen, setColumnsModalOpen] = useState(false);
-  const [columnSettingsSaving, setColumnSettingsSaving] = useState(false);
-  const [columnSettingsError, setColumnSettingsError] = useState('');
-  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+
   const selectionMode = controlledSelectionMode ?? selectionModeState;
   const showAllRows = controlledShowAllRows ?? showAllRowsState;
   const autoPageSize = controlledAutoPageSize ?? autoPageSizeState;
   const rowDensity = controlledRowDensity ?? rowDensityState;
   const editingEnabled = controlledEditingEnabled ?? editingEnabledState;
+
   const { apiColumnsError, apiColumnsLoading, shouldFetchColumns, sourceColumns } = useApiColumns({
     appId,
     columnRequest,
@@ -156,12 +122,14 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     localColumns,
     locale,
   });
+
   const dataColumns = useMemo(
     () => buildTanStackDataColumns(sourceColumns, { dataRows: tableData, transformColumnsFn }),
     [sourceColumns, tableData, transformColumnsFn],
   );
   const currentDefaultColumnOrder = useMemo(() => buildDefaultColumnOrder(dataColumns), [dataColumns]);
   const currentDefaultColumnSizing = useMemo(() => buildDefaultColumnSizing(dataColumns), [dataColumns]);
+
   const {
     columnFilters,
     globalFilter,
@@ -203,74 +171,14 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
   }, [showFilters]);
 
   useResetPaginationOnFilterChange({ columnFilters, globalFilter, setPagination });
-  useDismissibleLayer(contextMenu, () => setContextMenu(null));
 
-  const columns = useMemo(
-    () => [
-      {
-        id: 'select',
-        enableResizing: false,
-        enableHiding: false,
-        enableColumnFilter: false,
-        enableSorting: false,
-        minSize: currentDefaultColumnSizing.select,
-        size: currentDefaultColumnSizing.select,
-        header: ({ table }) =>
-          selectionMode === 'multi' ? (
-            <TableCheckbox
-              aria-label="Select all rows"
-              checked={table.getIsAllRowsSelected()}
-              indeterminate={table.getIsSomeRowsSelected()}
-              onChange={table.getToggleAllRowsSelectedHandler()}
-            />
-          ) : (
-            <span>Select</span>
-          ),
-        cell: ({ row }) =>
-          selectionMode === 'multi' ? (
-            <TableCheckbox
-              aria-label={`Select ${row.original.id}`}
-              checked={row.getIsSelected()}
-              disabled={!row.getCanSelect()}
-              onChange={row.getToggleSelectedHandler()}
-            />
-          ) : (
-            <input
-              aria-label={`Select ${row.original.id}`}
-              checked={row.getIsSelected()}
-              name="tanstack-selection"
-              onChange={row.getToggleSelectedHandler()}
-              type="radio"
-            />
-          ),
-      },
-      ...dataColumns.map((column) => ({
-        ...column,
-        meta: {
-          ...(column.meta ?? {}),
-          editable: editingEnabled && Boolean(column.meta?.editable),
-        },
-        cell:
-          getColumnId(column) === 'status'
-            ? (cellContext) => (
-                <EditableCell
-                  {...cellContext}
-                  renderPreview={(value, searchTerm) => (
-                    <StatusBadge value={value}>{renderHighlightedText(value, searchTerm)}</StatusBadge>
-                  )}
-                  searchTerm={globalFilter}
-                />
-              )
-            : (cellContext) => (
-                <EditableCell
-                  {...cellContext}
-                  searchTerm={globalFilter}
-                />
-              ),
-      })),
-    ],
-    [currentDefaultColumnSizing.select, dataColumns, editingEnabled, globalFilter, selectionMode],
-  );
+  const columns = useGridColumns({
+    dataColumns,
+    editingEnabled,
+    globalFilter,
+    selectionMode,
+    selectColumnWidth: currentDefaultColumnSizing.select,
+  });
 
   const table = useReactTable({
     columns,
@@ -316,91 +224,11 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
   const matchingRows = table.getPrePaginationRowModel().rows;
   const visibleRows = showAllRows ? matchingRows : table.getRowModel().rows;
   const selectedRows = table.getSelectedRowModel().rows;
-  const aggregateRows = aggregationScope === 'filtered' ? matchingRows : visibleRows;
   const visibleExportColumns = table
     .getVisibleLeafColumns()
     .filter((column) => column.id !== 'select' && (shouldFetchColumns || exportableFieldIds.includes(column.id)));
-  const aggregationLabels = {
-    ...defaultAggregationLabels,
-    ...(aggregationConfig.labels ?? {}),
-  };
-  const aggregationColumnOptions = getAggregationColumnOptions(
-    visibleExportColumns,
-    matchingRows,
-    aggregationConfig,
-  );
-  const selectedAggregationColumnId = aggregationColumnOptions.some((option) => option.key === aggregationColumnId)
-    ? aggregationColumnId
-    : aggregationColumnOptions[0]?.key ?? '';
-  const aggregateItems = selectedAggregationColumnId
-    ? getColumnAggregates({
-        aggregationConfig,
-        columnId: selectedAggregationColumnId,
-        labels: aggregationLabels,
-        locale,
-        tableRows: aggregateRows,
-      })
-    : [];
   const activeColumnFilters = columnFilters.filter((filter) => isAdvancedFilterActive(filter.value)).length;
-  const activePresentationRules = presentationRules.filter((rule) => rule.enabled).length;
   const rowDensityConfig = rowDensityConfigs[rowDensity] ?? rowDensityConfigs.standard;
-  const pageSizeOptions = useMemo(
-    () =>
-      pageSizeChoices.includes(pagination.pageSize)
-        ? pageSizeChoices
-        : [...pageSizeChoices, pagination.pageSize].sort((first, second) => first - second),
-    [pagination.pageSize],
-  );
-
-  function setSelectionMode(nextSelectionMode) {
-    const resolvedSelectionMode = resolveNextValue(nextSelectionMode, selectionMode);
-
-    if (controlledSelectionMode === undefined) {
-      setSelectionModeState(resolvedSelectionMode);
-    }
-
-    onSelectionModeChange?.(resolvedSelectionMode);
-  }
-
-  function setShowAllRows(nextShowAllRows) {
-    const resolvedShowAllRows = resolveNextValue(nextShowAllRows, showAllRows);
-
-    if (controlledShowAllRows === undefined) {
-      setShowAllRowsState(resolvedShowAllRows);
-    }
-
-    onShowAllRowsChange?.(resolvedShowAllRows);
-  }
-
-  function setAutoPageSize(nextAutoPageSize) {
-    const resolvedAutoPageSize = resolveNextValue(nextAutoPageSize, autoPageSize);
-
-    if (controlledAutoPageSize === undefined) {
-      setAutoPageSizeState(resolvedAutoPageSize);
-    }
-
-    onAutoPageSizeChange?.(resolvedAutoPageSize);
-  }
-
-  function setRowDensity(nextRowDensity) {
-    const resolvedRowDensity = resolveNextValue(nextRowDensity, rowDensity);
-
-    if (controlledRowDensity === undefined) {
-      setRowDensityState(resolvedRowDensity);
-    }
-
-    onRowDensityChange?.(resolvedRowDensity);
-  }
-
-  function setEditingEnabled(nextEditingEnabled) {
-    const resolvedEditingEnabled = resolveNextValue(nextEditingEnabled, editingEnabled);
-
-    if (controlledEditingEnabled === undefined) {
-      setEditingEnabledState(resolvedEditingEnabled);
-    }
-
-    onEditingEnabledChange?.(resolvedEditingEnabled);
-  }
 
   function updatePageSize(nextPageSize) {
     setPagination((current) =>
@@ -415,12 +243,6 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
 
     onPageSizeChange?.(nextPageSize);
   }
-
-  useEffect(() => {
-    if (aggregationColumnId !== selectedAggregationColumnId) {
-      setAggregationColumnId(selectedAggregationColumnId);
-    }
-  }, [aggregationColumnId, selectedAggregationColumnId]);
 
   useEffect(() => {
     if (controlledPageSize === undefined) {
@@ -446,6 +268,16 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     showAllRows,
     tableWrapRef,
   });
+
+  const { applySearch, clearSearch } = useGridSearch({
+    globalFilter,
+    globalFilterDraft,
+    onSearchPropsChange,
+    setGlobalFilter,
+    setGlobalFilterDraft,
+    setPagination,
+  });
+
   const selectedRowsReport = useSelectionReport({
     onSelectionChange,
     rowSelection,
@@ -453,34 +285,6 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     table,
     tableData,
   });
-
-  const applySearch = useCallback(
-    (event) => {
-      if (event?.preventDefault) {
-        event.preventDefault();
-      }
-      setGlobalFilter(globalFilterDraft.trim());
-      setPagination((current) => ({ ...current, pageIndex: 0 }));
-    },
-    [globalFilterDraft, setGlobalFilter, setPagination],
-  );
-
-  const clearSearch = useCallback(() => {
-    setGlobalFilterDraft('');
-    setGlobalFilter('');
-    setPagination((current) => ({ ...current, pageIndex: 0 }));
-  }, [setGlobalFilter, setGlobalFilterDraft, setPagination]);
-
-  useEffect(() => {
-    onSearchPropsChange?.({
-      appliedSearchTerm: globalFilter,
-      clearSearch,
-      executeSearch: applySearch,
-      inputValue: globalFilterDraft,
-      isSearching: false,
-      setInputValue: setGlobalFilterDraft,
-    });
-  }, [applySearch, clearSearch, globalFilter, globalFilterDraft, onSearchPropsChange, setGlobalFilterDraft]);
 
   function updateColumnFilter(columnId, value) {
     const column = table.getColumn(columnId);
@@ -508,323 +312,64 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     setOpenFilterColumnId('');
   }
 
-  function exportFilteredRows() {
-    const csvContent = buildCsvContent(visibleExportColumns, matchingRows);
-    downloadCsvFile('tanstack-table-export.csv', csvContent);
-  }
+  const {
+    columnSettingsError,
+    columnSettingsOptions,
+    columnSettingsSaving,
+    columnsModalOpen,
+    fitAllColumnWidths,
+    fitColumnWidth,
+    moveColumn,
+    openColumnSettingsModal,
+    orderedDataColumnIds,
+    reorderColumnSettings,
+    resetColumnSettings,
+    resetColumnSettingsDraft,
+    saveColumnSettings,
+    syncColumnWidthsFromDom,
+    cancelColumnSettings,
+  } = useGridColumnSettings({
+    appId,
+    columnOrder,
+    columnSettingsDraft,
+    columnSizing,
+    columnVisibility,
+    currentDefaultColumnOrder,
+    currentDefaultColumnSizing,
+    dataColumns,
+    gridId,
+    onSaveColumnPreferences,
+    setColumnOrder,
+    setColumnSettingsDraft,
+    setColumnSizing,
+    setColumnVisibility,
+    table,
+    tableData,
+    tableWrapRef,
+  });
 
-  function printRows(mode) {
-    const printableRows =
-      mode === 'selected' ? selectedRows : mode === 'all' ? matchingRows : visibleRows;
+  const {
+    activePresentationRules,
+    addPresentationRule,
+    columnOptions,
+    deletePresentationRule,
+    reorderPresentationRules,
+    resetPresentationRules,
+    updatePresentationRule,
+  } = useGridPresentation({
+    dataColumns,
+    orderedDataColumnIds,
+    presentationRules,
+    setPresentationRules,
+    table,
+  });
 
-    if (printableRows.length === 0) {
-      return;
-    }
-
-    const printTitle =
-      mode === 'selected'
-        ? 'TanStack Table - Selected Rows'
-        : mode === 'all'
-          ? 'TanStack Table - All Filtered Rows'
-          : 'TanStack Table - Current Page';
-
-    openPrintWindow({
-      columns: visibleExportColumns,
-      rows: printableRows,
-      title: printTitle,
-    });
-  }
-
-  function exportPdfView() {
-    printRows('all');
-  }
-
-  function moveColumn(columnId, direction) {
-    setColumnOrder((currentOrder) => {
-      const normalizedOrder = normalizeColumnOrder(currentOrder, currentDefaultColumnOrder);
-      const movableColumnIds = normalizedOrder.filter((id) => id !== 'select');
-      const columnIndex = movableColumnIds.indexOf(columnId);
-      const nextIndex = columnIndex + direction;
-
-      if (columnIndex === -1 || nextIndex < 0 || nextIndex >= movableColumnIds.length) {
-        return normalizedOrder;
-      }
-
-      const nextOrder = [...movableColumnIds];
-      [nextOrder[columnIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[columnIndex]];
-
-      return ['select', ...nextOrder];
-    });
-  }
-
-  function moveDraftColumn(columnId, direction) {
-    setColumnSettingsDraft((currentDraft) => {
-      const normalizedOrder = normalizeColumnOrder(currentDraft.columnOrder, currentDefaultColumnOrder);
-      const movableColumnIds = normalizedOrder.filter((id) => id !== 'select');
-      const columnIndex = movableColumnIds.indexOf(columnId);
-      const nextIndex = columnIndex + direction;
-
-      if (columnIndex === -1 || nextIndex < 0 || nextIndex >= movableColumnIds.length) {
-        return currentDraft;
-      }
-
-      const nextOrder = [...movableColumnIds];
-      [nextOrder[columnIndex], nextOrder[nextIndex]] = [nextOrder[nextIndex], nextOrder[columnIndex]];
-
-      return {
-        ...currentDraft,
-        columnOrder: ['select', ...nextOrder],
-      };
-    });
-  }
-
-  function reorderColumnSettings(activeColumnId, overColumnId) {
-    setColumnSettingsDraft((currentDraft) => ({
-      ...currentDraft,
-      columnOrder: [
-        'select',
-        ...reorderItems(
-          normalizeColumnOrder(currentDraft.columnOrder, currentDefaultColumnOrder).filter(
-            (columnId) => columnId !== 'select',
-          ),
-          activeColumnId,
-          overColumnId,
-        ),
-      ],
-    }));
-  }
-
-  function updateColumnWidth(columnId, width) {
-    const numericWidth = Number(width);
-    const minimumWidth = columnId === 'select' ? currentDefaultColumnSizing.select : MIN_COLUMN_WIDTH;
-
-    if (!Number.isFinite(numericWidth)) {
-      return;
-    }
-
-    setColumnSizing((currentSizing) => ({
-      ...currentSizing,
-      [columnId]: Math.max(minimumWidth, numericWidth),
-    }));
-  }
-
-  function updateDraftColumnWidth(columnId, width) {
-    const numericWidth = Number(width);
-    const minimumWidth = columnId === 'select' ? currentDefaultColumnSizing.select : MIN_COLUMN_WIDTH;
-
-    if (!Number.isFinite(numericWidth)) {
-      return;
-    }
-
-    setColumnSettingsDraft((currentDraft) => ({
-      ...currentDraft,
-      columnSizing: {
-        ...currentDraft.columnSizing,
-        [columnId]: Math.max(minimumWidth, numericWidth),
-      },
-    }));
-  }
-
-  function resetColumnSettings() {
-    setColumnOrder(currentDefaultColumnOrder);
-    setColumnSizing(currentDefaultColumnSizing);
-    setColumnVisibility({});
-  }
-
-  function resetColumnSettingsDraft() {
-    setColumnSettingsError('');
-    setColumnSettingsDraft(buildColumnSettingsState({}, dataColumns));
-  }
-
-  function openColumnSettingsModal() {
-    setColumnSettingsDraft(
-      buildColumnSettingsState({
-        columnOrder,
-        columnSizing,
-        columnVisibility,
-      }, dataColumns),
-    );
-    setColumnSettingsError('');
-    setColumnsModalOpen(true);
-  }
-
-  function cancelColumnSettings() {
-    setColumnSettingsDraft(
-      buildColumnSettingsState({
-        columnOrder,
-        columnSizing,
-        columnVisibility,
-      }, dataColumns),
-    );
-    setColumnSettingsError('');
-    setColumnsModalOpen(false);
-  }
-
-  async function saveColumnSettings() {
-    const nextColumnSettings = buildColumnSettingsState(columnSettingsDraft, dataColumns);
-    const columnPreferencesPayload = buildColumnPreferencesPayload(nextColumnSettings, dataColumns);
-
-    setColumnSettingsSaving(true);
-    setColumnSettingsError('');
-
-    try {
-      await onSaveColumnPreferences({
-        appId,
-        gridId,
-        payload: columnPreferencesPayload,
-      });
-
-      setColumnOrder(nextColumnSettings.columnOrder);
-      setColumnSizing(nextColumnSettings.columnSizing);
-      setColumnVisibility(nextColumnSettings.columnVisibility);
-      setColumnsModalOpen(false);
-    } catch (error) {
-      setColumnSettingsError(error?.message || 'Failed to save column preferences.');
-    } finally {
-      setColumnSettingsSaving(false);
-    }
-  }
-
-  function addPresentationRule() {
-    const fallbackField =
-      orderedDataColumnIds[0] ??
-      dataColumns.find((c) => c.accessorKey || c.id)?.accessorKey ??
-      dataColumns[0]?.id;
-
-    if (!fallbackField) return;
-
-    setPresentationRules((currentRules) => [
-      ...currentRules,
-      createPresentationRule({
-        field: fallbackField,
-      }),
-    ]);
-  }
-
-  function updatePresentationRule(ruleId, patch) {
-    setPresentationRules((currentRules) =>
-      normalizePresentationRules(
-        currentRules.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)),
-      ),
-    );
-  }
-
-  function deletePresentationRule(ruleId) {
-    setPresentationRules((currentRules) => currentRules.filter((rule) => rule.id !== ruleId));
-  }
-
-  function reorderPresentationRules(activeRuleId, overRuleId) {
-    setPresentationRules((currentRules) => reorderItems(currentRules, activeRuleId, overRuleId));
-  }
-
-  function resetPresentationRules() {
-    setPresentationRules(cloneDefaultPresentationRules());
-  }
-
-  function getColumnLabel(column) {
-    return typeof column?.columnDef.header === 'string' ? column.columnDef.header : column?.id;
-  }
-
-  function clampContextMenuPosition(event) {
-    const x = Math.max(12, Math.min(event.clientX, window.innerWidth - CONTEXT_MENU_WIDTH - 12));
-    const y = Math.max(12, Math.min(event.clientY, window.innerHeight - CONTEXT_MENU_HEIGHT_ESTIMATE - 12));
-
-    return {
-      submenuPlacement: x > window.innerWidth - CONTEXT_MENU_WIDTH * 2 - 24 ? 'left' : 'right',
-      x,
-      y,
-    };
-  }
-
-  function openHeaderContextMenu(event, header) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const position = clampContextMenuPosition(event);
-
-    setContextMenu({
-      ...position,
-      columnId: header.column.id,
-      label: `Column: ${getColumnLabel(header.column)}`,
-      target: 'header',
-    });
-  }
-
-  function openCellContextMenu(event, cell, row) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const position = clampContextMenuPosition(event);
-
-    setContextMenu({
-      ...position,
-      cellId: cell.id,
-      columnId: cell.column.id,
-      displayValue: getColumnDisplayText(cell.column, getCellValue(row, cell.column.id), 'export'),
-      label: `${row.original.id} · ${getColumnLabel(cell.column)}`,
-      rowId: row.id,
-      target: 'cell',
-      value: getCellValue(row, cell.column.id),
-    });
-  }
-
-  function fitColumnWidth(columnId) {
-    if (columnId === 'select') {
-      updateColumnWidth(columnId, currentDefaultColumnSizing.select);
-      return;
-    }
-
-    const column = table.getColumn(columnId);
-    const headerText = getColumnLabel(column) ?? columnId;
-    const longestTextLength = tableData.reduce(
-      (length, row) => Math.max(length, String(row[columnId] ?? '').length),
-      String(headerText).length,
-    );
-    const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, longestTextLength * 9 + 48));
-
-    updateColumnWidth(columnId, measuredWidth);
-  }
-
-  function fitAllColumnWidths() {
-    currentDefaultColumnOrder.forEach((columnId) => fitColumnWidth(columnId));
-  }
-
-  function readRenderedColumnWidths() {
-    const tableWrapElement = tableWrapRef.current;
-
-    if (!tableWrapElement) {
-      return {};
-    }
-
-    return Array.from(tableWrapElement.querySelectorAll('thead th[data-column-id]')).reduce(
-      (widths, headerCell) => {
-        const columnId = headerCell.getAttribute('data-column-id');
-
-        if (!columnId) {
-          return widths;
-        }
-
-        return {
-          ...widths,
-          [columnId]: Math.max(MIN_COLUMN_WIDTH, Math.round(headerCell.getBoundingClientRect().width)),
-        };
-      },
-      {},
-    );
-  }
-
-  function syncColumnWidthsFromDom() {
-    const renderedWidths = readRenderedColumnWidths();
-
-    if (Object.keys(renderedWidths).length === 0) {
-      return;
-    }
-
-    setColumnSizing((currentSizing) => ({
-      ...currentSizing,
-      ...renderedWidths,
-    }));
-  }
+  const { copyContextRow, exportFilteredRows, exportPdfView, printMenuItems, printRows } = useGridExportPrint({
+    matchingRows,
+    selectedRows,
+    visibleExportColumns,
+    visibleRows,
+  });
 
   const activateRow = useCallback(
     (row, { event, source = 'programmatic' } = {}) => {
@@ -840,242 +385,64 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     [onRowDoubleClick, table],
   );
 
-  function selectContextRow(rowId, replaceSelection = selectionMode === 'single') {
-    if (replaceSelection) {
-      setRowSelection({ [rowId]: true });
-      return;
-    }
+  const {
+    closeContextMenu,
+    contextMenu,
+    contextMenuItems,
+    handleContextMenuSelect,
+    onMenuHeightChange,
+    openCellContextMenu,
+    openHeaderContextMenu,
+  } = useGridContextMenu({
+    activateRow,
+    activeColumnFilters,
+    clearColumnFilters,
+    clearSearch,
+    contextMenuConfig,
+    copyContextRow,
+    fitAllColumnWidths,
+    fitColumnWidth,
+    globalFilter,
+    moveColumn,
+    onOpenColumnSettings: openColumnSettingsModal,
+    orderedDataColumnIds,
+    resetColumnSettings,
+    rowSelection,
+    selectionMode,
+    setOpenFilterColumnId,
+    setRowSelection,
+    setShowFilters,
+    syncColumnWidthsFromDom,
+    table,
+    updateColumnFilter,
+    visibleExportColumns,
+    visibleRows,
+  });
 
-    setRowSelection((currentSelection) => ({
-      ...currentSelection,
-      [rowId]: true,
-    }));
-  }
+  useDismissibleLayer(contextMenu, closeContextMenu);
 
-  function toggleContextRow(rowId) {
-    setRowSelection((currentSelection) => {
-      if (selectionMode === 'single') {
-        return currentSelection[rowId] ? {} : { [rowId]: true };
-      }
-
-      const nextSelection = { ...currentSelection };
-
-      if (nextSelection[rowId]) {
-        delete nextSelection[rowId];
-      } else {
-        nextSelection[rowId] = true;
-      }
-
-      return nextSelection;
-    });
-  }
-
-  function copyContextRow(row) {
-    const content = visibleExportColumns
-      .map((column) => buildCsvValue(getColumnDisplayText(column, row.original[column.id], 'export')))
-      .join(',');
-    copyText(content);
-  }
-
-  const orderedDataColumnIds = normalizeColumnOrder(columnOrder, currentDefaultColumnOrder).filter(
-    (columnId) => columnId !== 'select',
+  const aggregateRows = aggregationScope === 'filtered' ? matchingRows : visibleRows;
+  const aggregationLabels = {
+    ...defaultAggregationLabels,
+    ...(aggregationConfig.labels ?? {}),
+  };
+  const aggregationColumnOptions = getAggregationColumnOptions(
+    visibleExportColumns,
+    matchingRows,
+    aggregationConfig,
   );
-
-  function buildHeaderContextMenuItems(menuState) {
-    const column = table.getColumn(menuState.columnId);
-    const canSort = column?.getCanSort();
-    const sortDirection = column?.getIsSorted();
-    const dataColumnIndex = orderedDataColumnIds.indexOf(menuState.columnId);
-    const canMoveColumn = dataColumnIndex !== -1;
-
-    return [
-      {
-        disabled: !canSort,
-        key: 'sort-ascending',
-        label: 'Sort ascending',
-        meta: canSort && sortDirection === 'asc' ? 'Active' : '',
-        onSelect: () => column?.toggleSorting(false),
-      },
-      {
-        disabled: !canSort,
-        key: 'sort-descending',
-        label: 'Sort descending',
-        meta: canSort && sortDirection === 'desc' ? 'Active' : '',
-        onSelect: () => column?.toggleSorting(true),
-      },
-      {
-        disabled: !sortDirection,
-        key: 'clear-sort',
-        label: 'Clear sort',
-        onSelect: () => column?.clearSorting(),
-      },
-      { key: 'header-separator-1', separator: true },
-      {
-        disabled: !column?.getCanHide(),
-        key: 'hide-column',
-        label: 'Hide column',
-        onSelect: () => column?.toggleVisibility(false),
-      },
-      {
-        key: 'column-layout',
-        label: 'Column layout',
-        items: [
-          {
-            disabled: !canMoveColumn || dataColumnIndex === 0,
-            key: 'move-left',
-            label: 'Move left',
-            onSelect: () => moveColumn(menuState.columnId, -1),
-          },
-          {
-            disabled: !canMoveColumn || dataColumnIndex === orderedDataColumnIds.length - 1,
-            key: 'move-right',
-            label: 'Move right',
-            onSelect: () => moveColumn(menuState.columnId, 1),
-          },
-          {
-            key: 'fit-column',
-            label: 'Auto fit this column',
-            onSelect: () => fitColumnWidth(menuState.columnId),
-          },
-          {
-            key: 'fit-all-columns',
-            label: 'Auto fit all columns',
-            onSelect: fitAllColumnWidths,
-          },
-          {
-            key: 'sync-rendered-widths',
-            label: 'Sync rendered widths',
-            onSelect: syncColumnWidthsFromDom,
-          },
-          {
-            key: 'reset-layout',
-            label: 'Reset column layout',
-            onSelect: resetColumnSettings,
-          },
-        ],
-      },
-      {
-        key: 'open-column-settings',
-        label: 'Open column settings',
-        onSelect: openColumnSettingsModal,
-      },
-    ];
-  }
-
-  function buildCellContextMenuItems(menuState) {
-    const column = table.getColumn(menuState.columnId);
-    const row = visibleRows.find((visibleRow) => visibleRow.id === menuState.rowId);
-    const canFilter = column?.getCanFilter();
-    const isSelected = Boolean(rowSelection[menuState.rowId]);
-
-    return [
-      {
-        key: 'copy-cell',
-        label: 'Copy cell value',
-        onSelect: () => copyText(menuState.displayValue ?? menuState.value),
-      },
-      {
-        disabled: !row,
-        key: 'copy-row',
-        label: 'Copy row values',
-        onSelect: () => copyContextRow(row),
-      },
-      {
-        disabled: !canFilter,
-        key: 'filter-by-value',
-        label: 'Filter by this value',
-        onSelect: () => {
-          updateColumnFilter(menuState.columnId, menuState.value);
-          setShowFilters(true);
-          setOpenFilterColumnId(menuState.columnId);
-        },
-      },
-      {
-        disabled: activeColumnFilters === 0 && !globalFilter,
-        key: 'clear-all-filters',
-        label: 'Clear all filters',
-        onSelect: () => {
-          clearColumnFilters();
-          clearSearch();
-        },
-      },
-      { key: 'cell-separator-1', separator: true },
-      {
-        key: 'row-actions',
-        label: 'Row actions',
-        items: [
-          {
-            disabled: !row,
-            key: 'select-row',
-            label: selectionMode === 'single' ? 'Select row' : 'Add row to selection',
-            onSelect: () => selectContextRow(menuState.rowId),
-          },
-          {
-            disabled: !row,
-            key: 'toggle-row-selection',
-            label: isSelected ? 'Remove from selection' : 'Toggle row selection',
-            onSelect: () => toggleContextRow(menuState.rowId),
-          },
-          {
-            disabled: !row,
-            key: 'activate-row',
-            label: 'Set as active row',
-            onSelect: () => activateRow(row, { source: 'context-menu' }),
-          },
-          {
-            disabled: !row,
-            key: 'print-this-row',
-            label: 'Print this row',
-            onSelect: () =>
-              openPrintWindow({
-                columns: visibleExportColumns,
-                rows: [row],
-                title: `TanStack Table - ${row.original.id}`,
-              }),
-          },
-        ],
-      },
-      {
-        key: 'paging-actions',
-        label: 'Paging',
-        items: [
-          {
-            disabled: !table.getCanPreviousPage(),
-            key: 'first-page',
-            label: 'First page',
-            onSelect: () => table.setPageIndex(0),
-          },
-          {
-            disabled: !table.getCanPreviousPage(),
-            key: 'previous-page',
-            label: 'Previous page',
-            onSelect: () => table.previousPage(),
-          },
-          {
-            disabled: !table.getCanNextPage(),
-            key: 'next-page',
-            label: 'Next page',
-            onSelect: () => table.nextPage(),
-          },
-          {
-            disabled: !table.getCanNextPage(),
-            key: 'last-page',
-            label: 'Last page',
-            onSelect: () => table.setPageIndex(Math.max(table.getPageCount() - 1, 0)),
-          },
-        ],
-      },
-    ];
-  }
-
-  function handleContextMenuSelect(item) {
-    if (item.disabled) {
-      return;
-    }
-
-    item.onSelect?.();
-    setContextMenu(null);
-  }
+  const effectiveAggregationColumnId = aggregationColumnOptions.some((option) => option.key === aggregationColumnId)
+    ? aggregationColumnId
+    : aggregationColumnOptions[0]?.key ?? '';
+  const aggregateItems = effectiveAggregationColumnId
+    ? getColumnAggregates({
+        aggregationConfig,
+        columnId: effectiveAggregationColumnId,
+        labels: aggregationLabels,
+        locale,
+        tableRows: aggregateRows,
+      })
+    : [];
 
   useImperativeHandle(
     ref,
@@ -1103,44 +470,16 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
       printSelected: () => printRows('selected'),
       syncColumnWidths: syncColumnWidthsFromDom,
     }),
-    [activeRow, activateRow, dataColumns, table, visibleExportColumns],
+    [activeRow, activateRow, dataColumns, printRows, syncColumnWidthsFromDom, table, visibleExportColumns],
   );
 
-  const columnOptions = orderedDataColumnIds
-    .map((columnId) => table.getColumn(columnId))
-    .filter(Boolean)
-    .map((column) => ({
-      key: column.id,
-      label: typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id,
-    }));
-  const draftDataColumnIds = normalizeColumnOrder(
-    columnSettingsDraft.columnOrder,
-    currentDefaultColumnOrder,
-  ).filter((columnId) => columnId !== 'select');
-  const columnSettingsOptions = draftDataColumnIds
-    .map((columnId) => table.getColumn(columnId))
-    .filter(Boolean)
-    .map((column, index) => ({
-      key: column.id,
-      label: typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id,
-      checked: columnSettingsDraft.columnVisibility[column.id] !== false,
-      canMoveDown: index < draftDataColumnIds.length - 1,
-      canMoveUp: index > 0,
-      disabled: !column.getCanHide(),
-      minWidth: MIN_COLUMN_WIDTH,
-      onChange: (checked) =>
-        setColumnSettingsDraft((currentDraft) => ({
-          ...currentDraft,
-          columnVisibility: {
-            ...currentDraft.columnVisibility,
-            [column.id]: checked,
-          },
-        })),
-      onMoveDown: () => moveDraftColumn(column.id, 1),
-      onMoveUp: () => moveDraftColumn(column.id, -1),
-      onWidthChange: (width) => updateDraftColumnWidth(column.id, width),
-      width: columnSettingsDraft.columnSizing[column.id] ?? column.getSize(),
-    }));
+  const pageSizeOptions = useMemo(
+    () =>
+      pageSizeChoices.includes(pagination.pageSize)
+        ? pageSizeChoices
+        : [...pageSizeChoices, pagination.pageSize].sort((first, second) => first - second),
+    [pagination.pageSize],
+  );
 
   const summaryItems = [
     { label: 'Visible rows', value: visibleRows.length },
@@ -1156,24 +495,7 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     { label: 'Auto page size', value: autoPageSize ? `${pagination.pageSize} rows` : 'off' },
   ];
 
-  const printMenuItems = [
-    {
-      key: 'current-page',
-      label: 'Print current page',
-      onClick: () => printRows('page'),
-    },
-    {
-      key: 'all-filtered',
-      label: 'Print all filtered rows',
-      onClick: () => printRows('all'),
-    },
-    {
-      key: 'selected',
-      disabled: selectedRows.length === 0,
-      label: 'Print selected rows',
-      onClick: () => printRows('selected'),
-    },
-  ];
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
 
   const footerButtons = buildGridFooterButtons({
     filtering: showFilters,
@@ -1206,25 +528,6 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
     summaryVisible: showSummary,
   });
 
-  const baseContextMenuItems =
-    contextMenu?.target === 'header'
-      ? buildHeaderContextMenuItems(contextMenu)
-      : contextMenu?.target === 'cell'
-        ? buildCellContextMenuItems(contextMenu)
-        : [];
-  const contextMenuItems = contextMenu
-    ? prepareContextMenuItems(
-        [
-          ...baseContextMenuItems,
-          ...normalizeCustomContextMenuItems(
-            contextMenu.target === 'header' ? contextMenuConfig.headerItems : contextMenuConfig.cellItems,
-            contextMenu,
-          ),
-        ],
-        contextMenu,
-        contextMenuConfig,
-      )
-    : [];
   const tableLoading = loading || apiColumnsLoading;
 
   return (
@@ -1254,7 +557,7 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
             aggregationScope={aggregationScope}
             onAggregationColumnChange={setAggregationColumnId}
             onAggregationScopeChange={setAggregationScope}
-            selectedAggregationColumnId={selectedAggregationColumnId}
+            selectedAggregationColumnId={effectiveAggregationColumnId}
             summaryItems={summaryItems}
           />
         ) : null}
@@ -1337,7 +640,8 @@ const TanStackGridContent = forwardRef(function TanStackGridContent({
 
       <ContextMenu
         items={contextMenuItems}
-        onClose={() => setContextMenu(null)}
+        onClose={closeContextMenu}
+        onHeightChange={onMenuHeightChange}
         onSelect={handleContextMenuSelect}
         state={contextMenu}
       />
