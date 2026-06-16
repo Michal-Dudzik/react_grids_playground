@@ -1,1 +1,1 @@
-export { TanStackGrid } from './TanStackGrid';
+export { TanStackGrid } from '@react-grids-playground/tanstack-grid';
