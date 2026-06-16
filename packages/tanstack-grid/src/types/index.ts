@@ -1,5 +1,5 @@
 import type { ColumnDef, RowData, Table, VisibilityState } from '@tanstack/react-table';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, HTMLAttributes, ReactNode, TableHTMLAttributes } from 'react';
 import type { AggregationConfig } from '../core/tableAggregation';
 import type { GridStateAdapter } from '../adapters/browser';
 
@@ -129,8 +129,8 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   showAllRows?: boolean;
   showColumnDividers?: boolean;
   showRowDividers?: boolean;
-  tableProps?: Record<string, unknown>;
-  tableWrapperProps?: Record<string, unknown>;
+  tableProps?: TableHTMLAttributes<HTMLTableElement>;
+  tableWrapperProps?: HTMLAttributes<HTMLDivElement>;
   transformColumnsFn?: (columns: ColumnDef<Row>[]) => ColumnDef<Row>[];
   getRowId?: (row: Row) => string;
   features?: GridFeatureFlags;

@@ -1,6 +1,16 @@
-// @ts-nocheck
+import type { Cell, Header, Row, Table } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
 import { Empty, Tooltip } from 'antd';
+import type { HTMLAttributes, MouseEvent, ReactNode, RefObject, TableHTMLAttributes } from 'react';
+
+// Enable CSS custom properties (variables) in React inline style objects.
+// csstype v3 requires explicit opt-in; see https://github.com/frenic/csstype#what-should-i-do-when-i-get-type-errors
+declare module 'csstype' {
+  interface Properties {
+    [key: `--${string}`]: string | number | undefined;
+  }
+}
+
 import {
   getCellValue,
   getMatchingPresentationRule,
@@ -9,13 +19,62 @@ import {
   getPresentationTooltip,
 } from '../../../core/tablePresentationRules';
 import { callOptionalHandler, getResolvedProps, mergeClassNames } from '../../../core/tableUtils';
+import type { GridPresentationRule } from '../../../types';
 import { AdvancedColumnFilterButton, renderPresentationCellContent } from './TanStackTableComponents';
 
-function getHeaderLabelTitle(header) {
+const HEADER_TOOLTIP_CLASS_NAMES = { root: 'tanstack-grid__header-tooltip' };
+
+interface RowDensityConfig {
+  cellPaddingY: string;
+  editorGap: string;
+  editorHeight: string;
+  rowHeight: number;
+  label?: string;
+}
+
+/**
+ * Props for the pure rendering layer of the grid table.
+ *
+ * Row-data generics are typed as `any` here because this component is not itself
+ * parameterised over the consumer's row shape — it receives already-resolved TanStack
+ * table/row/cell objects from the parent.  Proper end-to-end generics can be added
+ * incrementally once the surrounding hooks are fully typed.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyData = any;
+
+interface TanStackTableGridProps {
+  activeRow: AnyData;
+  enableAltRow?: boolean;
+  getCellProps?: (context: Record<string, unknown>) => Record<string, unknown>;
+  getHeaderProps?: (context: Record<string, unknown>) => Record<string, unknown>;
+  getRowProps?: (context: Record<string, unknown>) => Record<string, unknown>;
+  onActivateRow: (row: Row<AnyData>, context: { event?: unknown; source?: string }) => void;
+  onClearAdvancedColumnFilter: (columnId: string) => void;
+  onOpenCellContextMenu: (event: MouseEvent<HTMLTableCellElement>, cell: Cell<AnyData, unknown>, row: Row<AnyData>) => void;
+  onOpenHeaderContextMenu: (event: MouseEvent<HTMLTableCellElement>, header: Header<AnyData, unknown>) => void;
+  onToggleFilterColumn: (columnId: string) => void;
+  onUpdateAdvancedColumnFilter: (columnId: string, filterValue: unknown) => void;
+  openFilterColumnId: string;
+  presentationRules: GridPresentationRule[];
+  rowDensity: string;
+  rowDensityConfig: RowDensityConfig;
+  rows: AnyData[];
+  showColumnDividers: boolean;
+  showFilters: boolean;
+  showRowDividers: boolean;
+  table: Table<AnyData>;
+  tableProps?: TableHTMLAttributes<HTMLTableElement>;
+  tableWrapRef: RefObject<HTMLDivElement | null>;
+  tableWrapperProps?: HTMLAttributes<HTMLDivElement>;
+  visibleRows: Row<AnyData>[];
+}
+
+function getHeaderLabelTitle(header: Header<AnyData, unknown>): string | undefined {
   return typeof header.column.columnDef.header === 'string' ? header.column.columnDef.header : undefined;
 }
 
-function wrapHeaderLabelWithTooltip(content, header) {
+function wrapHeaderLabelWithTooltip(content: ReactNode, header: Header<AnyData, unknown>): ReactNode {
   const headerLabelTitle = getHeaderLabelTitle(header);
 
   if (!headerLabelTitle) {
@@ -23,7 +82,7 @@ function wrapHeaderLabelWithTooltip(content, header) {
   }
 
   return (
-    <Tooltip overlayClassName="tanstack-grid__header-tooltip" placement="topLeft" title={headerLabelTitle} trigger={['hover', 'focus']}>
+    <Tooltip classNames={HEADER_TOOLTIP_CLASS_NAMES} placement="topLeft" title={headerLabelTitle} trigger={['hover', 'focus']}>
       {content}
     </Tooltip>
   );
@@ -54,7 +113,7 @@ export function TanStackTableGrid({
   tableWrapRef,
   tableWrapperProps = {},
   visibleRows,
-}) {
+}: TanStackTableGridProps) {
   const {
     className: tableWrapperClassName,
     style: tableWrapperStyle,

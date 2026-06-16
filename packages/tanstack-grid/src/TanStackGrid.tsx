@@ -27,6 +27,10 @@ import {
 } from './core/tableFilters';
 import type { TanStackGridProps, TanStackGridRef } from './types';
 
+function getDefaultRowId(row: unknown) {
+  return String((row as { id?: string | number }).id ?? '');
+}
+
 const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(function TanStackGridContent(
   {
     aggregationConfig = {},
@@ -43,7 +47,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     exportAdapter,
     features = {},
     fetchColumns,
-    getRowId = (row) => String((row as { id?: string | number }).id ?? ''),
+    getRowId = getDefaultRowId,
     getCellProps,
     getHeaderProps,
     getRowProps,

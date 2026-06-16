@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TanStackGrid } from '../index';
 
 const rows = [
@@ -12,6 +13,11 @@ const columns = [
   { accessorKey: 'status', header: 'Status', size: 140, meta: { filterVariant: 'select' } },
   { accessorKey: 'amount', header: 'Amount', size: 120 },
 ];
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('TanStackGrid package component', () => {
   it('renders with consumer-provided rows and columns only', () => {
@@ -38,5 +44,18 @@ describe('TanStackGrid package component', () => {
 
     expect(markup).toContain('data-slot="status"');
     expect(markup).toContain('Live');
+  });
+
+  it('does not loop selection reporting when getRowId is omitted', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      const message = args.map(String).join(' ');
+
+      if (message.includes('Maximum update depth exceeded')) {
+        throw new Error(message);
+      }
+    });
+
+    expect(() => render(<TanStackGrid rows={rows} columns={columns} />)).not.toThrow();
+    expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('Maximum update depth exceeded'));
   });
 });

@@ -14,6 +14,14 @@ import type { GridPresentationRule } from '../types';
 
 import type { GridColumnPreferencesAdapter } from '../types';
 
+function getDefaultRowId<Row extends RowData>(row: Row) {
+  return String((row as { id?: string | number }).id ?? '');
+}
+
+function areStringArraysEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 interface UseApiColumnsParams {
   columnRequest?: typeof fetch;
   defaultColumns: unknown[];
@@ -325,13 +333,13 @@ interface UseSelectionReportParams<Row extends RowData = RowData> {
 }
 
 export function useSelectionReport<Row extends RowData = RowData>({
-  getRowId = (row) => String((row as { id?: string | number }).id ?? ''),
+  getRowId = getDefaultRowId,
   onSelectionChange,
   rowSelection,
   selectionMode,
   table,
 }: UseSelectionReportParams<Row>) {
-  const [selectedRowsReport, setSelectedRowsReport] = useState([]);
+  const [selectedRowsReport, setSelectedRowsReport] = useState<string[]>([]);
 
   const onSelectionChangeRef = useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
@@ -340,7 +348,7 @@ export function useSelectionReport<Row extends RowData = RowData>({
     const selectedRowModels = table.getSelectedRowModel().rows;
     const selectedRowIds = selectedRowModels.map((row) => getRowId(row.original));
 
-    setSelectedRowsReport(selectedRowIds);
+    setSelectedRowsReport((current) => (areStringArraysEqual(current, selectedRowIds) ? current : selectedRowIds));
     onSelectionChangeRef.current?.(
       selectedRowModels.map((row) => row.original),
       {
