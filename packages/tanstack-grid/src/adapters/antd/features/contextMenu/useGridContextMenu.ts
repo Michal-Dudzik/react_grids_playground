@@ -50,6 +50,7 @@ export function useGridContextMenu({
   syncColumnWidthsFromDom,
   table,
   printAdapter,
+  getMessage = (_key, fallback) => fallback,
   updateColumnFilter,
   visibleExportColumns,
   visibleRows,
@@ -79,7 +80,7 @@ export function useGridContextMenu({
     setContextMenu({
       ...position,
       columnId: header.column.id,
-      label: `Column: ${getColumnLabel(header.column)}`,
+      label: `${getMessage('columnTitlePrefix')}: ${getColumnLabel(header.column)}`,
       target: 'header',
     });
   }, []);
@@ -143,71 +144,71 @@ export function useGridContextMenu({
       {
         disabled: !canSort,
         key: 'sort-ascending',
-        label: 'Sort ascending',
-        meta: canSort && sortDirection === 'asc' ? 'Active' : '',
+        label: getMessage('sortAscending'),
+        meta: canSort && sortDirection === 'asc' ? getMessage('active') : '',
         onSelect: () => column?.toggleSorting(false),
       },
       {
         disabled: !canSort,
         key: 'sort-descending',
-        label: 'Sort descending',
-        meta: canSort && sortDirection === 'desc' ? 'Active' : '',
+        label: getMessage('sortDescending'),
+        meta: canSort && sortDirection === 'desc' ? getMessage('active') : '',
         onSelect: () => column?.toggleSorting(true),
       },
       {
         disabled: !sortDirection,
         key: 'clear-sort',
-        label: 'Clear sort',
+        label: getMessage('clearSort', 'Clear sort'),
         onSelect: () => column?.clearSorting(),
       },
       { key: 'header-separator-1', separator: true },
       {
         disabled: !column?.getCanHide(),
         key: 'hide-column',
-        label: 'Hide column',
+        label: getMessage('hideColumn'),
         onSelect: () => column?.toggleVisibility(false),
       },
       {
         key: 'column-layout',
-        label: 'Column layout',
+        label: getMessage('columnLayout'),
         items: [
           {
             disabled: !canMoveColumn || dataColumnIndex === 0,
             key: 'move-left',
-            label: 'Move left',
+            label: getMessage('moveLeft'),
             onSelect: () => moveColumn(menuState.columnId, -1),
           },
           {
             disabled: !canMoveColumn || dataColumnIndex === orderedDataColumnIds.length - 1,
             key: 'move-right',
-            label: 'Move right',
+            label: getMessage('moveRight'),
             onSelect: () => moveColumn(menuState.columnId, 1),
           },
           {
             key: 'fit-column',
-            label: 'Auto fit this column',
+            label: getMessage('autoFitThisColumn'),
             onSelect: () => fitColumnWidth(menuState.columnId),
           },
           {
             key: 'fit-all-columns',
-            label: 'Auto fit all columns',
+            label: getMessage('autoFitAllColumns'),
             onSelect: fitAllColumnWidths,
           },
           {
             key: 'sync-rendered-widths',
-            label: 'Sync rendered widths',
+            label: getMessage('syncRenderedWidths'),
             onSelect: syncColumnWidthsFromDom,
           },
           {
             key: 'reset-layout',
-            label: 'Reset column layout',
+            label: getMessage('resetColumnLayout'),
             onSelect: resetColumnSettings,
           },
         ],
       },
       {
         key: 'open-column-settings',
-        label: 'Open column settings',
+        label: getMessage('openColumnSettings'),
         onSelect: onOpenColumnSettings,
       },
     ];
@@ -222,19 +223,19 @@ export function useGridContextMenu({
     return [
       {
         key: 'copy-cell',
-        label: 'Copy cell value',
+        label: getMessage('copyCellValue', 'Copy cell value'),
         onSelect: () => (clipboardAdapter?.copyText ?? copyText)(menuState.displayValue ?? menuState.value),
       },
       {
         disabled: !row,
         key: 'copy-row',
-        label: 'Copy row values',
+        label: getMessage('copyRowValues', 'Copy row values'),
         onSelect: () => copyContextRow(row),
       },
       {
         disabled: !canFilter,
         key: 'filter-by-value',
-        label: 'Filter by this value',
+        label: getMessage('filterByThisValue'),
         onSelect: () => {
           updateColumnFilter(menuState.columnId, menuState.value);
           setShowFilters(true);
@@ -244,7 +245,7 @@ export function useGridContextMenu({
       {
         disabled: (activeColumnFilters ?? 0) === 0 && !globalFilter,
         key: 'clear-all-filters',
-        label: 'Clear all filters',
+        label: getMessage('clearAllFilters', 'Clear all filters'),
         onSelect: () => {
           clearColumnFilters();
           clearSearch();
@@ -253,30 +254,30 @@ export function useGridContextMenu({
       { key: 'cell-separator-1', separator: true },
       {
         key: 'row-actions',
-        label: 'Row actions',
+        label: getMessage('rowActions'),
         items: [
           {
             disabled: !row,
             key: 'select-row',
-            label: selectionMode === 'single' ? 'Select row' : 'Add row to selection',
+            label: selectionMode === 'single' ? getMessage('selectRow') : getMessage('addRowToSelection'),
             onSelect: () => selectContextRow(menuState.rowId),
           },
           {
             disabled: !row,
             key: 'toggle-row-selection',
-            label: isSelected ? 'Remove from selection' : 'Add to selection',
+            label: isSelected ? getMessage('removeFromSelection') : getMessage('addRowToSelection'),
             onSelect: () => toggleContextRow(menuState.rowId),
           },
           {
             disabled: !row,
             key: 'activate-row',
-            label: 'Set as active row',
+            label: getMessage('setAsActiveRow'),
             onSelect: () => activateRow(row, { source: 'context-menu' }),
           },
           {
             disabled: !row,
             key: 'print-this-row',
-            label: 'Print this row',
+            label: getMessage('printThisRow'),
             onSelect: () =>
               (printAdapter?.openPrintWindow ?? openPrintWindow)({
                 columns: visibleExportColumns,
@@ -288,30 +289,30 @@ export function useGridContextMenu({
       },
       {
         key: 'paging-actions',
-        label: 'Paging',
+        label: getMessage('paging'),
         items: [
           {
             disabled: !table.getCanPreviousPage(),
             key: 'first-page',
-            label: 'First page',
+            label: getMessage('firstPage'),
             onSelect: () => table.setPageIndex(0),
           },
           {
             disabled: !table.getCanPreviousPage(),
             key: 'previous-page',
-            label: 'Previous page',
+            label: getMessage('previousPage'),
             onSelect: () => table.previousPage(),
           },
           {
             disabled: !table.getCanNextPage(),
             key: 'next-page',
-            label: 'Next page',
+            label: getMessage('nextPage'),
             onSelect: () => table.nextPage(),
           },
           {
             disabled: !table.getCanNextPage(),
             key: 'last-page',
-            label: 'Last page',
+            label: getMessage('lastPage'),
             onSelect: () => table.setPageIndex(Math.max(table.getPageCount() - 1, 0)),
           },
         ],
@@ -376,6 +377,7 @@ export function useGridContextMenu({
     activateRow,
     visibleExportColumns,
     printAdapter,
+    getMessage,
   ]);
 
   return {

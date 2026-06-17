@@ -1,0 +1,95 @@
+.syncfusion-grid-wrapper {
+  min-height: 560px;
+  color: var(--text);
+}
+
+.syncfusion-grid-base.e-grid {
+  border-color: rgb(var(--color-border) / 0.22);
+  background: rgb(var(--color-background-default));
+  color: rgb(var(--color-text-base));
+}
+
+.syncfusion-grid-base.e-grid .e-gridheader,
+.syncfusion-grid-base.e-grid .e-headercontent,
+.syncfusion-grid-base.e-grid .e-headercell {
+  border-color: rgb(var(--color-border) / 0.28);
+  background: rgb(var(--color-background-base));
+  color: rgb(var(--color-text-muted));
+}
+
+.syncfusion-grid-base.e-grid .e-content,
+.syncfusion-grid-base.e-grid .e-rowcell,
+.syncfusion-grid-base.e-grid .e-altrow {
+  border-color: rgb(var(--color-border) / 0.18);
+  background: rgb(var(--color-background-default));
+  color: rgb(var(--color-text-base));
+}
+
+.syncfusion-grid-base.e-grid .e-altrow .e-rowcell {
+  background: rgb(var(--color-background-fill));
+}
+
+.syncfusion-grid-base.e-grid .e-row:hover .e-rowcell,
+.syncfusion-grid-base.e-grid .e-selectionbackground,
+.syncfusion-grid-base.e-grid .e-active {
+  background: rgb(var(--color-button-accent) / 0.12);
+}
+
+.syncfusion-grid-base.e-grid .e-focused:not(.e-menu-item),
+.syncfusion-grid-base.e-grid .e-focused td {
+  box-shadow: inset 0 0 0 1px rgb(var(--color-button-accent) / 0.72);
+}
+
+.syncfusion-grid-base.e-grid .e-icons,
+.syncfusion-grid-base.e-grid .e-btn-icon {
+  color: rgb(var(--color-text-muted));
+}
+
+.syncfusion-grid-base.e-grid .e-checkbox-wrapper .e-frame.e-check,
+.syncfusion-grid-base.e-grid .e-css.e-checkbox-wrapper .e-frame.e-check {
+  border-color: rgb(var(--color-button-accent));
+  background-color: rgb(var(--color-button-accent));
+}
+
+.syncfusion-grid-base.e-grid .e-pager,
+.syncfusion-grid-base.e-grid .e-gridpager {
+  border-color: rgb(var(--color-border) / 0.22);
+  background: rgb(var(--color-background-base));
+  color: rgb(var(--color-text-base));
+}
+
+.syncfusion-grid-base.e-grid .e-rowcell.cell-locked {
+  background: rgb(var(--color-warning) / 0.12);
+  color: rgb(var(--color-text-muted));
+}
+
+.syncfusion-grid-base.e-grid .e-row.row-requires-attention .e-rowcell {
+  background: rgb(var(--color-danger) / 0.1);
+}
+
+.e-contextmenu-wrapper ul,
+.e-contextmenu-container ul,
+.e-filter-popup,
+.e-xlflmenu {
+  border-color: rgb(var(--color-border) / 0.28);
+  background: rgb(var(--color-background-default));
+  color: rgb(var(--color-text-base));
+}
+
+.e-contextmenu-wrapper ul .e-menu-item,
+.e-contextmenu-container ul .e-menu-item {
+  color: rgb(var(--color-text-base));
+}
+
+.e-contextmenu-wrapper ul .e-menu-item.e-focused,
+.e-contextmenu-container ul .e-menu-item.e-focused,
+.e-contextmenu-wrapper ul .e-menu-item:hover,
+.e-contextmenu-container ul .e-menu-item:hover {
+  background: rgb(var(--color-button-accent) / 0.12);
+  color: rgb(var(--color-text-base));
+}
+
+.dark .syncfusion-grid-base.e-grid,
+:root[data-theme='dark'] .syncfusion-grid-base.e-grid {
+  border-color: rgb(var(--color-border) / 0.34);
+}

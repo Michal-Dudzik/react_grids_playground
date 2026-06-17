@@ -27,6 +27,7 @@
     "@syncfusion/ej2-react-grids": "^33.2.12",
     "@tanstack/react-table": "^8.21.3",
     "antd": "^6.3.6",
+    "cldr-data": "^36.0.5",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.21",
     "react": "^19.1.0",

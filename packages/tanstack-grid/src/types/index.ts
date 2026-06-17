@@ -5,7 +5,7 @@ import type { GridStateAdapter } from '../adapters/browser';
 
 export type { GridStateAdapter } from '../adapters/browser';
 
-export type GridColumnDef<Row extends RowData = RowData> = ColumnDef<Row> & {
+export type GridColumnDef<Row extends RowData = RowData> = Partial<ColumnDef<Row>> & {
   /** Grid input field name; mapped to TanStack's `accessorKey` when building table columns. */
   field?: keyof Row | string;
   alias?: string;
@@ -18,6 +18,75 @@ export type GridColumnDef<Row extends RowData = RowData> = ColumnDef<Row> & {
   allowEditing?: boolean;
   readOnly?: boolean;
 };
+
+export interface GridMessageDescriptor {
+  defaultMessage: string;
+  id: string;
+}
+
+export type GridFormatMessage = (
+  descriptor: GridMessageDescriptor,
+  values?: Record<string, unknown>,
+) => string;
+
+export interface GridLabels {
+  [key: string]: string;
+}
+
+export interface GridFooterButtonConfig {
+  key?: string;
+  className?: string;
+  component?: ReactNode;
+  disabled?: boolean;
+  icon?: ReactNode;
+  isCustomComponent?: boolean;
+  label?: string;
+  loading?: boolean;
+  onClick?: () => void;
+  title?: string;
+  type?: 'default' | 'primary' | 'dashed' | 'link' | 'text';
+}
+
+export interface GridFooterConfig {
+  buttons?: GridFooterButtonConfig[];
+  hidePageCount?: boolean;
+  showColumnsSettings?: boolean;
+  showExportExcel?: boolean;
+  showExportPdf?: boolean;
+  showFilter?: boolean;
+  showFooter?: boolean;
+  showPresentationSettings?: boolean;
+  showPrint?: boolean;
+  showSummary?: boolean;
+}
+
+export interface SyncfusionTemplateRuleCompat {
+  match?: (column: unknown) => boolean;
+  template?: ReactNode | ((props: Record<string, unknown>) => ReactNode);
+}
+
+export interface SyncfusionContextMenuItemCompat {
+  action?: (context: Record<string, unknown>) => void;
+  disabled?: boolean | ((context: Record<string, unknown>) => boolean);
+  hidden?: boolean | ((context: Record<string, unknown>) => boolean);
+  iconCss?: string;
+  id?: string;
+  items?: SyncfusionContextMenuItemCompat[];
+  key?: string;
+  label?: string;
+  meta?: string;
+  separator?: boolean;
+  target?: string;
+  text?: string;
+}
+
+export interface SyncfusionContextMenuCompat {
+  contextMenuItems?: Array<string | SyncfusionContextMenuItemCompat>;
+  disabledMap?: Record<string, unknown>;
+  hiddenMap?: Record<string, unknown>;
+  items?: Array<string | SyncfusionContextMenuItemCompat>;
+  onContextMenuClick?: (args: Record<string, unknown>) => void;
+}
 
 export interface GridFeatureFlags {
   columnSettings?: boolean;
@@ -72,6 +141,7 @@ export interface GridCellPreviewContext<Row extends RowData = RowData> {
   column: GridColumnDef<Row>;
   columnId: string;
   renderHighlightedText: (value: unknown, searchTerm?: string) => ReactNode;
+  row?: Row;
   searchTerm?: string;
   value: unknown;
 }
@@ -92,6 +162,7 @@ export interface TanStackGridRef<Row extends RowData = RowData> {
 }
 
 export interface TanStackGridProps<Row extends RowData = RowData> {
+  data?: Row[];
   rows?: Row[];
   columns?: GridColumnDef<Row>[];
   aggregationConfig?: AggregationConfig;
@@ -115,6 +186,9 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   initialShowAllRows?: boolean;
   loading?: boolean;
   locale?: string;
+  labels?: Partial<GridLabels> & Record<string, string>;
+  formatMessage?: GridFormatMessage;
+  footerConfig?: GridFooterConfig;
   onAutoPageSizeChange?: (enabled: boolean) => void;
   onEditingEnabledChange?: (enabled: boolean) => void;
   onPageSizeChange?: (pageSize: number) => void;
@@ -163,4 +237,19 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   onRowActivate?: (row: Row, context: Record<string, unknown>) => void;
   onRowDoubleClick?: (row: Row, context: Record<string, unknown>) => void;
   onError?: (error: Error, errorInfo: unknown) => void;
+}
+
+export interface TanStackGridCompatProps<Row extends RowData = RowData> extends TanStackGridProps<Row> {
+  aggregationConfig?: unknown;
+  autoCalculatePageSize?: boolean;
+  contextMenu?: SyncfusionContextMenuCompat;
+  data?: Row[];
+  decoration?: Record<string, unknown>;
+  disablePaging?: boolean;
+  enableSelectionColumn?: boolean;
+  footerConfig?: GridFooterConfig;
+  lowRowHeight?: boolean;
+  pageSettings?: { pageSize?: number; pageSizes?: number[] };
+  selectionSettings?: { type?: 'Single' | 'Multiple' | string };
+  templateRules?: SyncfusionTemplateRuleCompat[];
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 const storageKey = 'react-grids-playground-theme';
+const colorThemeClass = 'theme-ocean-green';
 
 function getInitialTheme() {
   if (typeof window === 'undefined') {
@@ -21,6 +22,8 @@ export function useThemeMode() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = themeMode;
+    document.documentElement.classList.toggle('dark', themeMode === 'dark');
+    document.documentElement.classList.add(colorThemeClass);
     window.localStorage.setItem(storageKey, themeMode);
   }, [themeMode]);
 

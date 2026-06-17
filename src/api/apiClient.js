@@ -1,6 +1,28 @@
 class ApiClient {
   constructor() {
     this.cache = new Map();
+    this.mockHandlers = new Map();
+  }
+
+  registerMockHandler(key, handler) {
+    this.mockHandlers.set(key, handler);
+
+    return () => {
+      this.mockHandlers.delete(key);
+      this.clearCache('');
+    };
+  }
+
+  async resolveMock(method, endpoint, body, options) {
+    for (const handler of this.mockHandlers.values()) {
+      const value = await handler({ body, endpoint, method, options });
+
+      if (value !== undefined) {
+        return value;
+      }
+    }
+
+    return undefined;
   }
 
   async request(method, endpoint, body, options = {}) {
@@ -11,6 +33,19 @@ class ApiClient {
       if (cached && Date.now() - cached.createdAt < (options.cacheTTL ?? 0)) {
         return cached.value;
       }
+    }
+
+    const mockValue = await this.resolveMock(method, endpoint, body, options);
+
+    if (mockValue !== undefined) {
+      if (method === 'GET' && options.cache) {
+        this.cache.set(cacheKey, {
+          createdAt: Date.now(),
+          value: mockValue,
+        });
+      }
+
+      return mockValue;
     }
 
     const response = await fetch(endpoint, {
@@ -50,7 +85,7 @@ class ApiClient {
 
   clearCache(partialKey) {
     for (const key of this.cache.keys()) {
-      if (key.includes(partialKey)) {
+      if (!partialKey || key.includes(partialKey)) {
         this.cache.delete(key);
       }
     }

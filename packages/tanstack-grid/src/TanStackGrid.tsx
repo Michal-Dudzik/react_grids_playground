@@ -20,6 +20,7 @@ import { useGridState } from './hooks/useGridState';
 import { useGridTableConfiguration } from './hooks/useGridTableConfiguration';
 import { useAutoPageSize, useDismissibleLayer, useSelectionReport } from './hooks/tableHooks';
 import { baseColumns, initialRows } from './core/tableColumns';
+import { createGridMessageResolver } from './core/gridIntl';
 import {
   getEmptyAdvancedFilterValue,
   isAdvancedFilterConfigured,
@@ -43,6 +44,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     contextMenuConfig = {},
     controlledState = {},
     defaultColumns = baseColumns,
+    data: compatRows,
     editingEnabled: controlledEditingEnabled,
     exportAdapter,
     features = {},
@@ -60,8 +62,11 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     initialRowDensity = 'standard',
     initialSelectionMode = 'multi',
     initialShowAllRows = false,
+    labels,
     loading = false,
     locale = 'en-US',
+    formatMessage,
+    footerConfig = {},
     onRowActivate,
     onPageSizeChange,
     onRowDoubleClick,
@@ -72,7 +77,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     pageSize: controlledPageSize,
     printAdapter,
     rowDensity: controlledRowDensity,
-    rows: localRows = initialRows,
+    rows: localRowsProp,
     selectionMode: controlledSelectionMode,
     showAllRows: controlledShowAllRows,
     slots = {},
@@ -84,6 +89,9 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   },
   ref,
 ) {
+  const localRows = localRowsProp ?? compatRows ?? initialRows;
+  const getMessage = createGridMessageResolver({ formatMessage, labels });
+
   const gridState = useGridState({
     autoPageSize: controlledAutoPageSize,
     columnPreferences,
@@ -320,6 +328,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     syncColumnWidthsFromDom,
     table: tableConfig.table,
     printAdapter,
+    getMessage,
     updateColumnFilter,
     visibleExportColumns: computations.visibleExportColumns,
     visibleRows: computations.visibleRows,
@@ -339,17 +348,17 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   });
 
   const summaryItems = [
-    { label: 'Visible rows', value: computations.visibleRows.length },
-    { label: 'Matching rows', value: computations.matchingRows.length },
-    { label: 'Selected rows', value: computations.selectedRows.length },
-    { label: 'Selection callback', value: selectedRowsReport.length > 0 ? selectedRowsReport.join(', ') : 'none' },
-    { label: 'Active row', value: gridState.activeRow ? getRowId(gridState.activeRow) : 'none' },
-    { label: 'Last double-click', value: gridState.lastDoubleClickedRow ? getRowId(gridState.lastDoubleClickedRow) : 'none' },
-    { label: 'Search', value: tableConfig.globalFilter || 'none' },
-    { label: 'Column filters', value: computations.activeColumnFilters || 'none' },
-    { label: 'Presentation rules', value: activePresentationRules || 'none' },
-    { label: 'Density', value: computations.rowDensityConfig.label },
-    { label: 'Auto page size', value: gridState.autoPageSize ? `${gridState.pagination.pageSize} rows` : 'off' },
+    { label: getMessage('visibleRows'), value: computations.visibleRows.length },
+    { label: getMessage('matchingRows'), value: computations.matchingRows.length },
+    { label: getMessage('selectedRows'), value: computations.selectedRows.length },
+    { label: getMessage('selectionCallback'), value: selectedRowsReport.length > 0 ? selectedRowsReport.join(', ') : getMessage('none') },
+    { label: getMessage('activeRow'), value: gridState.activeRow ? getRowId(gridState.activeRow) : getMessage('none') },
+    { label: getMessage('lastDoubleClick'), value: gridState.lastDoubleClickedRow ? getRowId(gridState.lastDoubleClickedRow) : getMessage('none') },
+    { label: getMessage('search'), value: tableConfig.globalFilter || getMessage('none') },
+    { label: getMessage('columnFilters'), value: computations.activeColumnFilters || getMessage('none') },
+    { label: getMessage('presentationRules'), value: activePresentationRules || getMessage('none') },
+    { label: getMessage('density'), value: computations.rowDensityConfig.label },
+    { label: getMessage('autoPageSize'), value: gridState.autoPageSize ? `${gridState.pagination.pageSize} ${getMessage('rowsSuffix')}` : getMessage('off') },
   ];
 
   const footerButtons = buildGridFooterButtons({
@@ -361,26 +370,28 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     onToggleFilter: () => tableConfig.setShowFilters((current) => !current),
     onToggleSummary: () => gridState.setShowSummary((current) => !current),
     onPrint: () => {},
+    getMessage,
     footerButtons: [
       {
         component: (
           <Dropdown menu={{ items: printMenuItems }} trigger={['click']}>
-            <Button aria-label="Print" icon={<PrinterOutlined />} title="Print" type="text" />
+            <Button aria-label={getMessage('print')} icon={<PrinterOutlined />} title={getMessage('print')} type="text" />
           </Dropdown>
         ),
         isCustomComponent: true,
         key: 'print',
-        title: 'Print',
+        title: getMessage('print'),
       },
+    ...(footerConfig.buttons ?? []),
     ],
-    showColumnsSettings: gridState.featureFlags.columnSettings,
-    showExportExcel: gridState.featureFlags.export,
-    showExportPdf: gridState.featureFlags.print,
-    showFilter: gridState.featureFlags.filtering,
-    showPresentationSettings: gridState.featureFlags.presentation,
+    showColumnsSettings: footerConfig.showColumnsSettings ?? gridState.featureFlags.columnSettings,
+    showExportExcel: footerConfig.showExportExcel ?? gridState.featureFlags.export,
+    showExportPdf: footerConfig.showExportPdf ?? gridState.featureFlags.print,
+    showFilter: footerConfig.showFilter ?? gridState.featureFlags.filtering,
+    showPresentationSettings: footerConfig.showPresentationSettings ?? gridState.featureFlags.presentation,
     presentationSettingsActive: gridState.templateEditorOpen,
-    showPrint: gridState.featureFlags.print,
-    showSummary: gridState.featureFlags.summary,
+    showPrint: footerConfig.showPrint ?? gridState.featureFlags.print,
+    showSummary: footerConfig.showSummary ?? gridState.featureFlags.summary,
     summaryVisible: gridState.showSummary,
   });
 
@@ -391,15 +402,15 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
       <div aria-busy={tableLoading} className="tanstack-grid__surface">
         {tableLoading ? (
           <div className="tanstack-grid__loading-overlay" role="status">
-            {tableConfig.apiColumnsLoading ? 'Loading columns...' : 'Loading table...'}
+            {tableConfig.apiColumnsLoading ? getMessage('loadingColumns') : getMessage('loadingTable')}
           </div>
         ) : null}
 
         {tableConfig.apiColumnsError ? (
           <Alert
             className="tanstack-grid__inline-panel"
-            message="Column API fallback"
-            description={`${tableConfig.apiColumnsError} Rendering fallback columns.`}
+            message={getMessage('columnApiFallback')}
+            description={`${tableConfig.apiColumnsError} ${getMessage('renderingFallbackColumns')}`}
             showIcon
             type="warning"
           />
@@ -444,33 +455,37 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
           tableWrapperProps={tableWrapperProps}
           visibleRows={computations.visibleRows}
         />
-
-        <GridFooter
-          attached
-          buttons={footerButtons}
-          currentPage={tableConfig.table.getState().pagination.pageIndex + 1}
-          disablePaging={gridState.showAllRows}
-          onPageChange={(page) => tableConfig.table.setPageIndex(page - 1)}
-          onPageSizeChange={updatePageSize}
-          pageSize={gridState.pagination.pageSize}
-          pageSizeDisabled={gridState.autoPageSize}
-          pageSizeOptions={computations.pageSizeOptions}
-          searchProps={{
+        {footerConfig.showFooter !== false ? (
+          <GridFooter
+            attached
+            buttons={footerButtons}
+            currentPage={tableConfig.table.getState().pagination.pageIndex + 1}
+            disablePaging={gridState.showAllRows}
+            onPageChange={(page) => tableConfig.table.setPageIndex(page - 1)}
+            onPageSizeChange={updatePageSize}
+            pageSize={gridState.pagination.pageSize}
+            pageSizeDisabled={gridState.autoPageSize}
+            pageSizeOptions={computations.pageSizeOptions}
+            searchProps={{
             inputValue: tableConfig.globalFilterDraft,
             onInputChange: tableConfig.setGlobalFilterDraft,
             onSearch: applySearch,
             onClear: clearSearch,
             isSearching: false,
-            placeholder: 'Search',
+            placeholder: getMessage('searchPlaceholder'),
           }}
-          total={computations.matchingRows.length}
-          totalPages={Math.max(tableConfig.table.getPageCount(), 1)}
-        />
+            total={computations.matchingRows.length}
+            hidePageCount={footerConfig.hidePageCount}
+            rowsLabel={getMessage('rows')}
+            totalPages={Math.max(tableConfig.table.getPageCount(), 1)}
+          />
+
+          ) : null}
       </div>
 
       <GridColumnsModal
         columns={columnSettingsOptions}
-        description="Choose visibility, order, and fixed widths for the TanStack columns. Settings persist in local storage for this preview."
+        description={getMessage('columnSettingsDescription')}
         error={columnSettingsError}
         isSaving={columnSettingsSaving}
         onClose={cancelColumnSettings}
@@ -478,6 +493,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         onReset={resetColumnSettingsDraft}
         onSave={saveColumnSettings}
         open={columnsModalOpen}
+        title={getMessage('columnSettings')}
       />
 
       <GridTemplateEditorModal

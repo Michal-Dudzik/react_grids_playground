@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageHeader } from './components/PageHeader';
 import { SideNav } from './components/SideNav';
+import { useAppLocale } from './locale';
 import { useThemeMode } from './useThemeMode';
 
 export function AppShell({ children, navigationItems }) {
   const location = useLocation();
+  const { locale, toggleLocale } = useAppLocale();
   const { themeMode, toggleTheme } = useThemeMode();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
@@ -27,6 +29,8 @@ export function AppShell({ children, navigationItems }) {
       <div className="app-shell__content">
         <PageHeader
           description={pageDescription}
+          locale={locale}
+          onToggleLocale={toggleLocale}
           onToggleMobileMenu={() => setIsMobileNavOpen((currentValue) => !currentValue)}
           onToggleTheme={toggleTheme}
           themeMode={themeMode}

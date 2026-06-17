@@ -76,6 +76,7 @@ export function useGridColumns({
                         column,
                         columnId,
                         renderHighlightedText,
+                        row: cellContext.row.original,
                         searchTerm,
                         value,
                       })

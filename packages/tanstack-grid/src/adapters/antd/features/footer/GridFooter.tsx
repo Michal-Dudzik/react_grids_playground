@@ -33,6 +33,7 @@ export interface GridFooterProps {
   searchProps?: GridFooterSearchProps;
   total?: number;
   totalPages?: number;
+  rowsLabel?: string;
 }
 
 interface GridFooterActionProps {
@@ -78,6 +79,7 @@ export function GridFooter({
   hidePageCount = false,
   disablePaging = false,
   attached = false,
+  rowsLabel = 'Rows',
 }: GridFooterProps) {
   return (
     <div className={`shared-grid-footer ${attached ? 'shared-grid-footer--attached' : ''}`.trim()}>
@@ -98,14 +100,14 @@ export function GridFooter({
             total={Math.max(total, totalPages * pageSize)}
           />
         ) : (
-          <span className="shared-grid-footer__page-indicator">Showing all {total} rows</span>
+          <span className="shared-grid-footer__page-indicator">Showing all {total} {rowsLabel.toLowerCase()}</span>
         )}
       </div>
 
       <div className="shared-grid-footer__section shared-grid-footer__section--end">
         {!hidePageCount && !disablePaging ? (
           <label className="shared-grid-footer__page-size" htmlFor="shared-grid-footer-page-size">
-            <span>Rows</span>
+            <span>{rowsLabel}</span>
             <Select
               disabled={pageSizeDisabled}
               id="shared-grid-footer-page-size"
