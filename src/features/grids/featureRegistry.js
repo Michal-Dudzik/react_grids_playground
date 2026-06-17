@@ -1,4 +1,5 @@
 import { buildGridChecklist } from './checklist';
+import { syncfusionGridFeature } from './syncfusion-grid/feature';
 import { tanStackTableFeature } from './tanStackTable/feature';
 
 function buildGroupedNotes(groups) {
@@ -307,4 +308,5 @@ export const gridFeatures = [
       ]),
     }),
   },
+  syncfusionGridFeature,
 ];

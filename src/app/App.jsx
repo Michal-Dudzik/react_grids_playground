@@ -1,10 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { OverviewPage } from '../features/overview/OverviewPage';
 import { gridFeatures } from '../features/grids/featureRegistry';
 import { GridFeaturePage } from '../features/grids/shared/GridFeaturePage';
 import { AppShell } from './AppShell';
 
 export function App() {
+  const defaultPath = gridFeatures[0]?.path ?? '/';
+
   return (
     <AppShell navigationItems={gridFeatures}>
       <Routes>
@@ -13,13 +14,9 @@ export function App() {
           element={
             <Navigate
               replace
-              to="/overview"
+              to={defaultPath}
             />
           }
-        />
-        <Route
-          path="/overview"
-          element={<OverviewPage />}
         />
         {gridFeatures.map((feature) => (
           <Route
@@ -28,6 +25,15 @@ export function App() {
             element={<GridFeaturePage feature={feature} />}
           />
         ))}
+        <Route
+          path="*"
+          element={
+            <Navigate
+              replace
+              to={defaultPath}
+            />
+          }
+        />
       </Routes>
     </AppShell>
   );
