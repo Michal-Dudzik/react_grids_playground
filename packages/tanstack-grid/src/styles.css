@@ -1,4 +1,5 @@
 .tanstack-grid,
+.shared-grid-modal,
 .tanstack-grid__filter-menu,
 .tanstack-grid__context-menu {
   --ts-grid-bg: rgb(var(--color-background-default, 255 253 248));
@@ -1024,6 +1025,11 @@
   width: 100%;
 }
 
+.shared-grid-modal .ant-modal-content {
+  background: var(--ts-grid-surface);
+  color: var(--ts-grid-text);
+}
+
 .shared-grid-modal__description {
   margin: 0;
   color: var(--ts-grid-text-muted);
@@ -1060,9 +1066,14 @@
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid var(--ts-grid-border);
+  border: 1px solid var(--ts-grid-border-strong);
   border-radius: 12px;
-  background: var(--ts-grid-surface-muted);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ts-grid-surface-muted) 78%, #ffffff) 0%,
+    color-mix(in srgb, var(--ts-grid-surface) 88%, var(--ts-grid-accent-soft)) 100%
+  );
+  box-shadow: 0 8px 22px rgb(var(--color-shadow, 17 33 47) / 0.08);
 }
 
 .shared-grid-template-editor__sortable--dragging {
@@ -1164,10 +1175,11 @@
 }
 
 .shared-grid-template-editor__color-field {
-  display: grid;
-  grid-template-columns: 36px auto;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .shared-grid-template-editor__color-field input[type='color'] {
@@ -1181,8 +1193,10 @@
 }
 
 .shared-grid-template-editor__color-field .ant-btn {
-  min-width: 0;
-  padding-inline: 8px;
+  flex: 0 0 auto;
+  min-width: max-content;
+  padding-inline: 10px;
+  white-space: nowrap;
 }
 
 .shared-grid-template-editor__preview {

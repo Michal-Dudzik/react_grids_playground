@@ -333,7 +333,14 @@ export function GridTemplateEditorModal({
   }
 
   return (
-    <Modal footer={null} onCancel={onClose} open={open} title="Presentation settings" width={1080}>
+    <Modal
+      footer={null}
+      onCancel={onClose}
+      open={open}
+      rootClassName="shared-grid-modal"
+      title="Presentation settings"
+      width={1080}
+    >
       <Space className="shared-grid-modal__stack" direction="vertical" size={16}>
         <Alert
           icon={<InfoCircleOutlined />}
