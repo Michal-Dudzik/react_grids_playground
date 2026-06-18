@@ -46,6 +46,12 @@ describe('TanStackGrid package component', () => {
     expect(markup).toContain('Live');
   });
 
+  it('hides the page size selector while auto page size is enabled', () => {
+    const markup = renderToStaticMarkup(<TanStackGrid rows={rows} columns={columns} autoPageSize />);
+
+    expect(markup).not.toContain('shared-grid-footer-page-size');
+  });
+
   it('does not loop selection reporting when getRowId is omitted', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => {
       const message = args.map(String).join(' ');

@@ -18,9 +18,10 @@
   --success: var(--ts-grid-success);
   --text-muted: var(--ts-grid-text-muted);
   --warning: var(--ts-grid-warning);
-  min-height: 560px;
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 .tanstack-grid__toolbar {
@@ -117,6 +118,10 @@
 
 .tanstack-grid__surface {
   position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--ts-grid-border);
   border-radius: 24px;
@@ -350,6 +355,8 @@
 }
 
 .tanstack-grid__table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   background: var(--ts-grid-surface);
 }
@@ -893,7 +900,8 @@
 }
 
 .shared-grid-footer__page-size .ant-select {
-  min-width: 82px;
+  width: 56px;
+  min-width: 56px;
 }
 
 .shared-grid-footer__divider {

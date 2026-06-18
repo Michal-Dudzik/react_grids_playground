@@ -31,7 +31,7 @@ export function useGridState<Row>({
   editingEnabled: controlledEditingEnabled,
   features = {},
   fetchColumns,
-  initialAutoPageSize = false,
+  initialAutoPageSize = true,
   initialEditingEnabled = true,
   initialPageSize = 5,
   initialRowDensity = 'standard',

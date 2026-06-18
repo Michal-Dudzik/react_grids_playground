@@ -268,6 +268,35 @@ interface UseAutoPageSizeParams {
   tableWrapRef: RefObject<HTMLElement | null>;
 }
 
+interface CalculateAutoPageSizeParams {
+  availableTableHeight: number;
+  headerHeight: number;
+  matchingRowsLength: number;
+  rowHeight: number;
+}
+
+export function calculateAutoPageSize({
+  availableTableHeight,
+  headerHeight,
+  matchingRowsLength,
+  rowHeight,
+}: CalculateAutoPageSizeParams) {
+  if (
+    !Number.isFinite(availableTableHeight) ||
+    !Number.isFinite(headerHeight) ||
+    !Number.isFinite(rowHeight) ||
+    availableTableHeight <= 0 ||
+    rowHeight <= 0
+  ) {
+    return undefined;
+  }
+
+  const availableBodyHeight = availableTableHeight - headerHeight;
+  const visibleRowCapacity = Math.max(1, Math.floor(availableBodyHeight / rowHeight));
+
+  return Math.max(1, Math.min(Math.max(matchingRowsLength, 1), visibleRowCapacity));
+}
+
 export function useAutoPageSize({
   autoPageSize,
   matchingRowsLength,
@@ -293,24 +322,24 @@ export function useAutoPageSize({
     function updateAutoPageSize() {
       const headerHeight =
         tableWrapElement.querySelector('thead')?.getBoundingClientRect().height ?? rowDensityConfig.rowHeight;
-      const tableTop = tableWrapElement.getBoundingClientRect().top;
-      const reservedFooterHeight = 148;
-      const availableTableHeight = Math.max(
-        rowDensityConfig.rowHeight * 2,
-        window.innerHeight - tableTop - reservedFooterHeight,
-      );
-      const nextPageSize = Math.max(
-        1,
-        Math.min(
-          Math.max(matchingRowsLength, 1),
-          Math.floor((availableTableHeight - headerHeight) / rowDensityConfig.rowHeight),
-        ),
-      );
+      const availableTableHeight = tableWrapElement.getBoundingClientRect().height;
+      const nextPageSize = calculateAutoPageSize({
+        availableTableHeight,
+        headerHeight,
+        matchingRowsLength,
+        rowHeight: rowDensityConfig.rowHeight,
+      });
+
+      if (nextPageSize === undefined) {
+        return;
+      }
 
       onPageSizeChangeRef.current(nextPageSize);
     }
 
     updateAutoPageSize();
+
+    const initialMeasureTimeout = window.setTimeout(updateAutoPageSize, 0);
 
     const resizeObserver =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateAutoPageSize);
@@ -318,6 +347,7 @@ export function useAutoPageSize({
     window.addEventListener('resize', updateAutoPageSize);
 
     return () => {
+      window.clearTimeout(initialMeasureTimeout);
       resizeObserver?.disconnect();
       window.removeEventListener('resize', updateAutoPageSize);
     };

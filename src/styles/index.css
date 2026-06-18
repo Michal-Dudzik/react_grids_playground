@@ -131,11 +131,16 @@ select {
 
 .app-shell__content {
   min-width: 0;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .app-shell__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   padding: 0 28px 28px;
 }
 
@@ -387,7 +392,9 @@ select {
 }
 .page-grid {
   display: grid;
+  flex: 1 1 auto;
   gap: 22px;
+  min-height: 0;
 }
 
 .playground-card,
@@ -407,9 +414,16 @@ select {
 }
 
 .grid-page-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 28px;
   border-radius: 30px;
-  min-height: 616px;
+}
+
+.grid-page-card > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .grid-preview-loading {

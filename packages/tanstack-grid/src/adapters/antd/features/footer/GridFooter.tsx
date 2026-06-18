@@ -25,6 +25,7 @@ export interface GridFooterProps {
   currentPage?: number;
   disablePaging?: boolean;
   hidePageCount?: boolean;
+  hidePageSizeSelector?: boolean;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSize?: number;
@@ -77,6 +78,7 @@ export function GridFooter({
   searchProps,
   buttons = [],
   hidePageCount = false,
+  hidePageSizeSelector = false,
   disablePaging = false,
   attached = false,
   rowsLabel = 'Rows',
@@ -105,7 +107,7 @@ export function GridFooter({
       </div>
 
       <div className="shared-grid-footer__section shared-grid-footer__section--end">
-        {!hidePageCount && !disablePaging ? (
+        {!hidePageCount && !hidePageSizeSelector && !disablePaging ? (
           <label className="shared-grid-footer__page-size" htmlFor="shared-grid-footer-page-size">
             <span>{rowsLabel}</span>
             <Select

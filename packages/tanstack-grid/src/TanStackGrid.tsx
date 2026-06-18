@@ -56,9 +56,9 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     gridId,
     enableAltRow = true,
     initialState = {},
-    initialAutoPageSize = false,
+    initialAutoPageSize = true,
     initialEditingEnabled = true,
-    initialPageSize = 5,
+    initialPageSize = 10,
     initialRowDensity = 'standard',
     initialSelectionMode = 'multi',
     initialShowAllRows = false,
@@ -461,6 +461,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
             buttons={footerButtons}
             currentPage={tableConfig.table.getState().pagination.pageIndex + 1}
             disablePaging={gridState.showAllRows}
+            hidePageSizeSelector={gridState.autoPageSize}
             onPageChange={(page) => tableConfig.table.setPageIndex(page - 1)}
             onPageSizeChange={updatePageSize}
             pageSize={gridState.pagination.pageSize}
