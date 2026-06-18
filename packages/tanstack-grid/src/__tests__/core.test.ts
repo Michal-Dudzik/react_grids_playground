@@ -12,7 +12,7 @@ import {
   normalizePresentationRules,
 } from '../core/tablePresentationRules';
 import { getColumnAggregates, getNumericAggregateValues } from '../core/tableAggregation';
-import { buildCsvContent, buildPrintableMarkup, prepareContextMenuItems } from '../core/tableUtils';
+import { buildCsvContent, buildPrintableMarkup, buildXlsxContent, prepareContextMenuItems } from '../core/tableUtils';
 
 const rows = [
   {
@@ -126,5 +126,35 @@ describe('core context and export payload helpers', () => {
 
     expect(buildCsvContent(columns as any, rows as any)).toContain('"Owner","Amount"');
     expect(buildPrintableMarkup({ columns, rows, title: 'Print' } as any)).toContain('<table>');
+  });
+
+  it('uses getValue for printable markup when it differs from row.original', () => {
+    const columns = [{ id: 'amount', columnDef: { header: 'Amount' }, getSize: () => 120 }];
+    const exportRows = [
+      {
+        original: { amount: 1200 },
+        getValue() {
+          return '$1,200';
+        },
+      },
+    ];
+
+    expect(buildCsvContent(columns as any, exportRows as any)).toContain('$1,200');
+    expect(buildPrintableMarkup({ columns, rows: exportRows, title: 'Print' } as any)).toContain('$1,200');
+    expect(buildPrintableMarkup({ columns, rows: exportRows, title: 'Print' } as any)).not.toContain('>1200<');
+  });
+
+  it('builds an XLSX workbook as an OpenXML zip archive', () => {
+    const columns = [
+      { id: 'owner', columnDef: { header: 'Owner' }, getSize: () => 140 },
+      { id: 'amount', columnDef: { header: 'Amount' }, getSize: () => 120 },
+    ];
+    const xlsxContent = buildXlsxContent(columns as any, rows as any, { sheetName: 'Orders' });
+    const decodedContent = new TextDecoder().decode(xlsxContent);
+
+    expect(Array.from(xlsxContent.slice(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+    expect(decodedContent).toContain('xl/worksheets/sheet1.xml');
+    expect(decodedContent).toContain('<sheet name="Orders"');
+    expect(decodedContent).toContain('Ava');
   });
 });

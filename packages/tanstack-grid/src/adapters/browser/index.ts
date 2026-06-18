@@ -1,6 +1,7 @@
 import {
   buildCsvContent,
   buildPrintableMarkup,
+  buildXlsxContent,
 } from '../../core/tableUtils';
 
 export interface GridStateAdapter<TState = unknown> {
@@ -137,6 +138,20 @@ export function downloadCsvFile(fileName: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+export function downloadXlsxFile(fileName: string, content: Uint8Array) {
+  const blobContent = new ArrayBuffer(content.byteLength);
+  new Uint8Array(blobContent).set(content);
+  const blob = new Blob([blobContent], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function openPrintWindow({ columns, rows, title }: { columns: unknown[]; rows: unknown[]; title: string }) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
@@ -184,4 +199,18 @@ export function openPrintWindow({ columns, rows, title }: { columns: unknown[]; 
 
 export function downloadRowsAsCsv({ columns, fileName, rows }: { columns: unknown[]; fileName: string; rows: unknown[] }) {
   downloadCsvFile(fileName, buildCsvContent(columns, rows));
+}
+
+export function downloadRowsAsXlsx({
+  columns,
+  fileName,
+  rows,
+  sheetName,
+}: {
+  columns: unknown[];
+  fileName: string;
+  rows: unknown[];
+  sheetName?: string;
+}) {
+  downloadXlsxFile(fileName, buildXlsxContent(columns, rows, { sheetName }));
 }

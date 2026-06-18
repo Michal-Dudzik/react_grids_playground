@@ -121,6 +121,7 @@ export interface GridColumnPreferencesAdapter {
 
 export interface GridExportAdapter {
   downloadCsvFile?: (fileName: string, content: string) => void;
+  downloadXlsxFile?: (fileName: string, content: Uint8Array) => void;
 }
 
 export interface GridPrintAdapter {

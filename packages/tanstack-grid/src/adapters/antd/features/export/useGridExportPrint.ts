@@ -2,11 +2,11 @@ import { useCallback, useMemo } from 'react';
 import type { Column, Row, RowData } from '@tanstack/react-table';
 import { getColumnDisplayText } from '../../../../core/tableDisplay';
 import {
-  buildCsvContent,
   buildCsvValue,
+  buildXlsxContent,
 } from '../../../../core/tableUtils';
 import type { GridClipboardAdapter, GridExportAdapter, GridPrintAdapter } from '../../../../types';
-import { copyText, downloadCsvFile, openPrintWindow } from '../../../browser';
+import { copyText, downloadXlsxFile, openPrintWindow } from '../../../browser';
 
 type PrintMode = 'selected' | 'all' | 'page';
 
@@ -34,8 +34,8 @@ export function useGridExportPrint<TData extends RowData = RowData>({
   visibleRows = [],
 }: UseGridExportPrintOptions<TData> = {}) {
   const exportFilteredRows = useCallback(() => {
-    const csvContent = buildCsvContent(visibleExportColumns, matchingRows);
-    (exportAdapter?.downloadCsvFile ?? downloadCsvFile)('tanstack-table-export.csv', csvContent);
+    const xlsxContent = buildXlsxContent(visibleExportColumns, matchingRows);
+    (exportAdapter?.downloadXlsxFile ?? downloadXlsxFile)('tanstack-table-export.xlsx', xlsxContent);
   }, [exportAdapter, visibleExportColumns, matchingRows]);
 
   const printRows = useCallback(

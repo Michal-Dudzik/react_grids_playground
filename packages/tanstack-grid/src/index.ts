@@ -9,6 +9,8 @@ export {
   createLocalStorageGridStateAdapter,
   downloadCsvFile,
   downloadRowsAsCsv,
+  downloadRowsAsXlsx,
+  downloadXlsxFile,
   openPrintWindow,
 } from './adapters/browser';
 export type {
