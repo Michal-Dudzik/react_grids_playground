@@ -1,4 +1,6 @@
-.tanstack-grid {
+.tanstack-grid,
+.tanstack-grid__filter-menu,
+.tanstack-grid__context-menu {
   --ts-grid-bg: rgb(var(--color-background-default, 255 253 248));
   --ts-grid-surface: rgb(var(--color-background-default, 255 253 248));
   --ts-grid-surface-muted: rgb(var(--color-background-fill, 255 251 245) / 0.92);
@@ -18,6 +20,9 @@
   --success: var(--ts-grid-success);
   --text-muted: var(--ts-grid-text-muted);
   --warning: var(--ts-grid-warning);
+}
+
+.tanstack-grid {
   display: flex;
   flex-direction: column;
   height: 100%;

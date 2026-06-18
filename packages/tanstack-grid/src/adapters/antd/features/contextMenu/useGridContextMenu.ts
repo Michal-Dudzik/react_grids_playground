@@ -6,7 +6,7 @@ import {
   normalizeCustomContextMenuItems,
   prepareContextMenuItems,
 } from '../../../../core/tableUtils';
-import { copyText, openPrintWindow } from '../../../browser';
+import { copyText } from '../../../browser';
 
 const CONTEXT_MENU_WIDTH = 248;
 // Fallback used only until the first ResizeObserver measurement arrives.
@@ -28,7 +28,6 @@ function clampContextMenuPosition(event, menuHeight) {
 }
 
 export function useGridContextMenu({
-  activateRow,
   activeColumnFilters,
   clearColumnFilters,
   clearSearch,
@@ -38,21 +37,11 @@ export function useGridContextMenu({
   fitAllColumnWidths,
   fitColumnWidth,
   globalFilter,
-  moveColumn,
-  onOpenColumnSettings,
-  orderedDataColumnIds,
-  resetColumnSettings,
-  rowSelection,
-  selectionMode,
   setOpenFilterColumnId,
-  setRowSelection,
   setShowFilters,
-  syncColumnWidthsFromDom,
   table,
-  printAdapter,
   getMessage = (_key, fallback) => fallback,
   updateColumnFilter,
-  visibleExportColumns,
   visibleRows,
 }) {
   const [contextMenu, setContextMenu] = useState(null);
@@ -103,42 +92,10 @@ export function useGridContextMenu({
     });
   }, []);
 
-  function selectContextRow(rowId, replaceSelection = selectionMode === 'single') {
-    if (replaceSelection) {
-      setRowSelection({ [rowId]: true });
-      return;
-    }
-
-    setRowSelection((currentSelection) => ({
-      ...currentSelection,
-      [rowId]: true,
-    }));
-  }
-
-  function toggleContextRow(rowId) {
-    setRowSelection((currentSelection) => {
-      if (selectionMode === 'single') {
-        return currentSelection[rowId] ? {} : { [rowId]: true };
-      }
-
-      const nextSelection = { ...currentSelection };
-
-      if (nextSelection[rowId]) {
-        delete nextSelection[rowId];
-      } else {
-        nextSelection[rowId] = true;
-      }
-
-      return nextSelection;
-    });
-  }
-
   function buildHeaderContextMenuItems(menuState) {
     const column = table.getColumn(menuState.columnId);
     const canSort = column?.getCanSort();
     const sortDirection = column?.getIsSorted();
-    const dataColumnIndex = orderedDataColumnIds.indexOf(menuState.columnId);
-    const canMoveColumn = dataColumnIndex !== -1;
 
     return [
       {
@@ -163,53 +120,14 @@ export function useGridContextMenu({
       },
       { key: 'header-separator-1', separator: true },
       {
-        disabled: !column?.getCanHide(),
-        key: 'hide-column',
-        label: getMessage('hideColumn'),
-        onSelect: () => column?.toggleVisibility(false),
+        key: 'fit-column',
+        label: getMessage('autoFitThisColumn'),
+        onSelect: () => fitColumnWidth(menuState.columnId),
       },
       {
-        key: 'column-layout',
-        label: getMessage('columnLayout'),
-        items: [
-          {
-            disabled: !canMoveColumn || dataColumnIndex === 0,
-            key: 'move-left',
-            label: getMessage('moveLeft'),
-            onSelect: () => moveColumn(menuState.columnId, -1),
-          },
-          {
-            disabled: !canMoveColumn || dataColumnIndex === orderedDataColumnIds.length - 1,
-            key: 'move-right',
-            label: getMessage('moveRight'),
-            onSelect: () => moveColumn(menuState.columnId, 1),
-          },
-          {
-            key: 'fit-column',
-            label: getMessage('autoFitThisColumn'),
-            onSelect: () => fitColumnWidth(menuState.columnId),
-          },
-          {
-            key: 'fit-all-columns',
-            label: getMessage('autoFitAllColumns'),
-            onSelect: fitAllColumnWidths,
-          },
-          {
-            key: 'sync-rendered-widths',
-            label: getMessage('syncRenderedWidths'),
-            onSelect: syncColumnWidthsFromDom,
-          },
-          {
-            key: 'reset-layout',
-            label: getMessage('resetColumnLayout'),
-            onSelect: resetColumnSettings,
-          },
-        ],
-      },
-      {
-        key: 'open-column-settings',
-        label: getMessage('openColumnSettings'),
-        onSelect: onOpenColumnSettings,
+        key: 'fit-all-columns',
+        label: getMessage('autoFitAllColumns'),
+        onSelect: fitAllColumnWidths,
       },
     ];
   }
@@ -218,7 +136,6 @@ export function useGridContextMenu({
     const column = table.getColumn(menuState.columnId);
     const row = visibleRows.find((visibleRow) => visibleRow.id === menuState.rowId);
     const canFilter = column?.getCanFilter();
-    const isSelected = Boolean(rowSelection[menuState.rowId]);
 
     return [
       {
@@ -250,72 +167,6 @@ export function useGridContextMenu({
           clearColumnFilters();
           clearSearch();
         },
-      },
-      { key: 'cell-separator-1', separator: true },
-      {
-        key: 'row-actions',
-        label: getMessage('rowActions'),
-        items: [
-          {
-            disabled: !row,
-            key: 'select-row',
-            label: selectionMode === 'single' ? getMessage('selectRow') : getMessage('addRowToSelection'),
-            onSelect: () => selectContextRow(menuState.rowId),
-          },
-          {
-            disabled: !row,
-            key: 'toggle-row-selection',
-            label: isSelected ? getMessage('removeFromSelection') : getMessage('addRowToSelection'),
-            onSelect: () => toggleContextRow(menuState.rowId),
-          },
-          {
-            disabled: !row,
-            key: 'activate-row',
-            label: getMessage('setAsActiveRow'),
-            onSelect: () => activateRow(row, { source: 'context-menu' }),
-          },
-          {
-            disabled: !row,
-            key: 'print-this-row',
-            label: getMessage('printThisRow'),
-            onSelect: () =>
-              (printAdapter?.openPrintWindow ?? openPrintWindow)({
-                columns: visibleExportColumns,
-                rows: [row],
-                title: `TanStack Table - ${row.original.id}`,
-              }),
-          },
-        ],
-      },
-      {
-        key: 'paging-actions',
-        label: getMessage('paging'),
-        items: [
-          {
-            disabled: !table.getCanPreviousPage(),
-            key: 'first-page',
-            label: getMessage('firstPage'),
-            onSelect: () => table.setPageIndex(0),
-          },
-          {
-            disabled: !table.getCanPreviousPage(),
-            key: 'previous-page',
-            label: getMessage('previousPage'),
-            onSelect: () => table.previousPage(),
-          },
-          {
-            disabled: !table.getCanNextPage(),
-            key: 'next-page',
-            label: getMessage('nextPage'),
-            onSelect: () => table.nextPage(),
-          },
-          {
-            disabled: !table.getCanNextPage(),
-            key: 'last-page',
-            label: getMessage('lastPage'),
-            onSelect: () => table.setPageIndex(Math.max(table.getPageCount() - 1, 0)),
-          },
-        ],
       },
     ];
   }
@@ -356,16 +207,10 @@ export function useGridContextMenu({
     contextMenuConfig,
     // header builder deps
     table,
-    orderedDataColumnIds,
-    moveColumn,
     fitColumnWidth,
     fitAllColumnWidths,
-    syncColumnWidthsFromDom,
-    resetColumnSettings,
-    onOpenColumnSettings,
     // cell builder deps
     visibleRows,
-    rowSelection,
     copyContextRow,
     clipboardAdapter,
     updateColumnFilter,
@@ -373,10 +218,6 @@ export function useGridContextMenu({
     setOpenFilterColumnId,
     activeColumnFilters,
     globalFilter,
-    selectionMode,
-    activateRow,
-    visibleExportColumns,
-    printAdapter,
     getMessage,
   ]);
 
