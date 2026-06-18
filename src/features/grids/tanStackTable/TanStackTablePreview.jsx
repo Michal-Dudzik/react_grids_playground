@@ -71,7 +71,7 @@ export const TanStackTablePreview = forwardRef(function TanStackTablePreview(pro
   const [selectionMode, setSelectionMode] = useState('multi');
   const [pageSize, setPageSize] = useState(5);
   const [showAllRows, setShowAllRows] = useState(false);
-  const [autoPageSize, setAutoPageSize] = useState(false);
+  const [autoPageSize, setAutoPageSize] = useState(true);
   const [rowDensity, setRowDensity] = useState('standard');
   const [editingEnabled, setEditingEnabled] = useState(true);
   const rows = useMemo(() => props.rows ?? getDemoRows(), [props.rows]);

@@ -98,6 +98,7 @@ export function GridFooter({
             onChange={(page) => onPageChange(page)}
             pageSize={pageSize}
             showSizeChanger={false}
+            size="small"
             simple
             total={Math.max(total, totalPages * pageSize)}
           />
@@ -118,7 +119,7 @@ export function GridFooter({
                 label: size,
                 value: size,
               }))}
-              size="middle"
+              size="small"
               value={pageSize}
             />
           </label>

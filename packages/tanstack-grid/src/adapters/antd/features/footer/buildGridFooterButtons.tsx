@@ -20,7 +20,7 @@ export function buildGridFooterButtons({
   showPrint = false,
   onPrint,
   showExportPdf = false,
-  onExportPdf,
+  onExportPdf = undefined,
   showExportExcel = false,
   onExportExcel,
   showColumnsSettings = false,
@@ -68,19 +68,19 @@ export function buildGridFooterButtons({
       title: getMessage('exportExcel'),
       type: 'text',
     },
-    showColumnsSettings && onColumnsSettings && {
-      key: 'columns-settings',
-      icon: <SettingOutlined />,
-      onClick: onColumnsSettings,
-      title: getMessage('columnSettings'),
-      type: columnsSettingsActive ? 'primary' : 'text',
-    },
     showPresentationSettings && onPresentationSettings && {
       key: 'presentation-settings',
       icon: <BgColorsOutlined />,
       onClick: onPresentationSettings,
       title: getMessage('editPresentation'),
       type: presentationSettingsActive ? 'primary' : 'text',
+    },
+    showColumnsSettings && onColumnsSettings && {
+      key: 'columns-settings',
+      icon: <SettingOutlined />,
+      onClick: onColumnsSettings,
+      title: getMessage('columnSettings'),
+      type: columnsSettingsActive ? 'primary' : 'text',
     },
   ].filter(Boolean);
 

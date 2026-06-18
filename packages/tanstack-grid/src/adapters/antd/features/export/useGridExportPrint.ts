@@ -14,6 +14,8 @@ export interface UseGridExportPrintOptions<TData extends RowData = RowData> {
   matchingRows?: Row<TData>[];
   clipboardAdapter?: GridClipboardAdapter;
   exportAdapter?: GridExportAdapter;
+  exportPdfLabel?: string;
+  includeExportPdf?: boolean;
   printAdapter?: GridPrintAdapter;
   selectedRows?: Row<TData>[];
   visibleExportColumns?: Column<TData, unknown>[];
@@ -24,6 +26,8 @@ export function useGridExportPrint<TData extends RowData = RowData>({
   matchingRows = [],
   clipboardAdapter,
   exportAdapter,
+  exportPdfLabel = 'Export PDF',
+  includeExportPdf = false,
   printAdapter,
   selectedRows = [],
   visibleExportColumns = [],
@@ -73,8 +77,8 @@ export function useGridExportPrint<TData extends RowData = RowData>({
     [clipboardAdapter, visibleExportColumns],
   );
 
-  const printMenuItems = useMemo(
-    () => [
+  const printMenuItems = useMemo(() => {
+    const items = [
       {
         key: 'current-page',
         label: 'Print current page',
@@ -91,9 +95,18 @@ export function useGridExportPrint<TData extends RowData = RowData>({
         label: 'Print selected rows',
         onClick: () => printRows('selected'),
       },
-    ],
-    [printRows, selectedRows],
-  );
+    ];
+
+    if (includeExportPdf) {
+      items.push({
+        key: 'export-pdf',
+        label: exportPdfLabel,
+        onClick: exportPdfView,
+      });
+    }
+
+    return items;
+  }, [exportPdfLabel, exportPdfView, includeExportPdf, printRows, selectedRows.length]);
 
   return {
     copyContextRow,

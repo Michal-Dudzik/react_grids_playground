@@ -846,10 +846,10 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  gap: 16px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 8px 12px;
   border: 1px solid var(--ts-grid-border);
-  border-radius: 22px;
+  border-radius: 14px;
   background: linear-gradient(180deg, var(--ts-grid-surface) 0%, var(--ts-grid-surface-muted) 100%);
   color: var(--ts-grid-text);
   overflow-x: auto;
@@ -865,7 +865,7 @@
 .shared-grid-footer__section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
@@ -884,33 +884,47 @@
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 6px;
 }
 
 .shared-grid-footer__page-indicator,
 .shared-grid-footer__page-size {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--ts-grid-text-muted);
 }
 
 .shared-grid-footer__page-size {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .shared-grid-footer__page-size .ant-select {
-  width: 56px;
-  min-width: 56px;
+  width: 48px;
+  min-width: 48px;
 }
 
 .shared-grid-footer__divider {
-  height: 28px;
+  height: 22px;
   border-inline-start-color: var(--ts-grid-border);
 }
 
 .shared-grid-footer__pagination.ant-pagination {
   margin: 0;
+  min-width: max-content;
+}
+
+.shared-grid-footer .ant-pagination.ant-pagination-simple .ant-pagination-prev,
+.shared-grid-footer .ant-pagination.ant-pagination-simple .ant-pagination-next {
+  min-width: 24px;
+  height: 24px;
+  line-height: 24px;
+}
+
+.shared-grid-footer .ant-pagination.ant-pagination-simple .ant-pagination-simple-pager {
+  height: 24px;
+  margin-inline: 4px;
+  line-height: 24px;
 }
 
 .shared-grid-footer__custom-action {
@@ -972,6 +986,9 @@
 }
 
 .shared-grid-footer .ant-pagination .ant-pagination-simple-pager input {
+  width: 34px;
+  height: 24px;
+  padding: 0 4px;
   color: var(--ts-grid-text);
 }
 

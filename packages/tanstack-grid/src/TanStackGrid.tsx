@@ -272,9 +272,13 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     table: tableConfig.table,
   });
 
-  const { copyContextRow, exportFilteredRows, exportPdfView, printMenuItems, printRows } = useGridExportPrint({
+  const showExportPdf = footerConfig.showExportPdf ?? gridState.featureFlags.print;
+
+  const { copyContextRow, exportFilteredRows, printMenuItems, printRows } = useGridExportPrint({
     clipboardAdapter,
     exportAdapter,
+    exportPdfLabel: getMessage('exportPdf'),
+    includeExportPdf: showExportPdf,
     matchingRows: computations.matchingRows,
     printAdapter,
     selectedRows: computations.selectedRows,
@@ -365,7 +369,6 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     filtering: tableConfig.showFilters,
     onColumnsSettings: openColumnSettingsModal,
     onExportExcel: exportFilteredRows,
-    onExportPdf: exportPdfView,
     onPresentationSettings: () => gridState.setTemplateEditorOpen(true),
     onToggleFilter: () => tableConfig.setShowFilters((current) => !current),
     onToggleSummary: () => gridState.setShowSummary((current) => !current),
@@ -386,7 +389,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     ],
     showColumnsSettings: footerConfig.showColumnsSettings ?? gridState.featureFlags.columnSettings,
     showExportExcel: footerConfig.showExportExcel ?? gridState.featureFlags.export,
-    showExportPdf: footerConfig.showExportPdf ?? gridState.featureFlags.print,
+    showExportPdf: false,
     showFilter: footerConfig.showFilter ?? gridState.featureFlags.filtering,
     showPresentationSettings: footerConfig.showPresentationSettings ?? gridState.featureFlags.presentation,
     presentationSettingsActive: gridState.templateEditorOpen,
