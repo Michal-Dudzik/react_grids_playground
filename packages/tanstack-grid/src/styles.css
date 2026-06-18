@@ -124,7 +124,7 @@
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--ts-grid-border);
-  border-radius: 24px;
+  border-radius: 0;
   background: var(--ts-grid-surface);
 }
 
