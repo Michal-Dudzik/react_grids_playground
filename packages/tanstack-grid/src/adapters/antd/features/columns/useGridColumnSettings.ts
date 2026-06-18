@@ -11,6 +11,36 @@ function getColumnLabel(column) {
   return typeof column?.columnDef.header === 'string' ? column.columnDef.header : column?.id;
 }
 
+const MAX_AUTO_FIT_COLUMN_WIDTH = 300;
+
+export function fillColumnWidthsToAvailableGridWidth(
+  columnWidths: Record<string, number>,
+  availableWidth: number,
+  stretchColumnIds: string[],
+) {
+  const nextColumnWidths = { ...columnWidths };
+  const currentTotalWidth = Object.values(nextColumnWidths).reduce((total, width) => total + Number(width || 0), 0);
+  const remainingWidth = Math.floor(Number(availableWidth) - currentTotalWidth);
+  const visibleStretchColumnIds = stretchColumnIds.filter((columnId) =>
+    Number.isFinite(Number(nextColumnWidths[columnId])),
+  );
+
+  if (remainingWidth <= 0 || visibleStretchColumnIds.length === 0) {
+    return nextColumnWidths;
+  }
+
+  const baseExtraWidth = Math.floor(remainingWidth / visibleStretchColumnIds.length);
+  let remainder = remainingWidth - baseExtraWidth * visibleStretchColumnIds.length;
+
+  visibleStretchColumnIds.forEach((columnId) => {
+    const extraWidth = baseExtraWidth + (remainder > 0 ? 1 : 0);
+    nextColumnWidths[columnId] = Math.round(Number(nextColumnWidths[columnId]) + extraWidth);
+    remainder -= 1;
+  });
+
+  return nextColumnWidths;
+}
+
 export function useGridColumnSettings({
   appId,
   columnOrder,
@@ -201,10 +231,9 @@ export function useGridColumnSettings({
     }
   }
 
-  function fitColumnWidth(columnId) {
+  function getAutoFitColumnWidth(columnId) {
     if (columnId === 'select') {
-      updateColumnWidth(columnId, currentDefaultColumnSizing.select);
-      return;
+      return currentDefaultColumnSizing.select;
     }
 
     const column = table.getColumn(columnId);
@@ -221,9 +250,7 @@ export function useGridColumnSettings({
 
       const allTexts = [String(headerText), ...tableData.map((row) => String(row[columnId] ?? ''))];
       const maxTextWidth = allTexts.reduce((max, text) => Math.max(max, ctx.measureText(text).width), 0);
-      const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxTextWidth) + 48));
-      updateColumnWidth(columnId, measuredWidth);
-      return;
+      return Math.min(MAX_AUTO_FIT_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxTextWidth) + 48));
     }
 
     // Fallback: character-count heuristic when Canvas API is unavailable
@@ -231,12 +258,34 @@ export function useGridColumnSettings({
       (length, row) => Math.max(length, String(row[columnId] ?? '').length),
       String(headerText).length,
     );
-    const measuredWidth = Math.min(300, Math.max(MIN_COLUMN_WIDTH, longestTextLength * 9 + 48));
+    return Math.min(MAX_AUTO_FIT_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, longestTextLength * 9 + 48));
+  }
+
+  function fitColumnWidth(columnId) {
+    const measuredWidth = getAutoFitColumnWidth(columnId);
     updateColumnWidth(columnId, measuredWidth);
   }
 
   function fitAllColumnWidths() {
-    currentDefaultColumnOrder.forEach((columnId) => fitColumnWidth(columnId));
+    const visibleColumnIds = table
+      .getVisibleLeafColumns()
+      .map((column) => column.id)
+      .filter((columnId) => currentDefaultColumnOrder.includes(columnId));
+    const measuredColumnWidths = Object.fromEntries(
+      visibleColumnIds.map((columnId) => [columnId, getAutoFitColumnWidth(columnId)]),
+    );
+    const stretchColumnIds = visibleColumnIds.filter((columnId) => columnId !== 'select');
+    const availableGridWidth = tableWrapRef.current?.clientWidth ?? 0;
+    const nextColumnWidths = fillColumnWidthsToAvailableGridWidth(
+      measuredColumnWidths,
+      availableGridWidth,
+      stretchColumnIds.length > 0 ? stretchColumnIds : visibleColumnIds,
+    );
+
+    setColumnSizing((currentSizing) => ({
+      ...currentSizing,
+      ...nextColumnWidths,
+    }));
   }
 
   function readRenderedColumnWidths(): Record<string, number> {
