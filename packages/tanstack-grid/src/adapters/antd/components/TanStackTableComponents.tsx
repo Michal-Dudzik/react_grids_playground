@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { Component, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Alert } from 'antd';
 import { FilterFilled, FilterOutlined } from '@ant-design/icons';
+import { GridErrorPanel } from '../../../components/GridComponents';
 import { advancedFilterOperators, advancedFilterOperatorsWithoutInput } from '../../../core/tableConfig';
 import { renderColumnDisplayValue } from '../../../core/tableDisplay';
 import {
@@ -16,6 +16,25 @@ import {
 import { getColumnLabelFromColumn } from '../../../core/tableAggregation';
 import { getPresentationAccent, isTruthyDisplayValue } from '../../../core/tablePresentationRules';
 import { mergeClassNames } from '../../../core/tableUtils';
+
+function defaultGetMessage(key, fallback, values) {
+  const message = fallback ?? key;
+
+  if (!values) {
+    return message;
+  }
+
+  return Object.entries(values).reduce(
+    (currentMessage, [valueKey, value]) => currentMessage.replaceAll(`{${valueKey}}`, String(value ?? '')),
+    message,
+  );
+}
+
+const advancedFilterOperatorLabelKeys = {
+  empty: 'isEmpty',
+  notContains: 'doesNotContain',
+  notEmpty: 'isNotEmpty',
+};
 
 export function renderHighlightedText(value, searchTerm) {
   const text = value == null ? '' : String(value);
@@ -40,7 +59,7 @@ export function renderHighlightedText(value, searchTerm) {
   );
 }
 
-export function renderPresentationCellContent(cellContent, rule, rawValue) {
+export function renderPresentationCellContent(cellContent, rule, rawValue, getMessage = defaultGetMessage) {
   if (!rule || rule.cellDisplay === 'value') {
     return (
       <>
@@ -62,7 +81,7 @@ export function renderPresentationCellContent(cellContent, rule, rawValue) {
         className="tanstack-grid__replacement tanstack-grid__replacement--pill"
         style={{ '--presentation-accent': getPresentationAccent(rule) }}
       >
-        {String(rawValue ?? '') || 'Empty'}
+        {String(rawValue ?? '') || getMessage('emptyCellValue')}
       </span>
     );
   }
@@ -72,7 +91,7 @@ export function renderPresentationCellContent(cellContent, rule, rawValue) {
 
     return (
       <span
-        aria-label={isTruthy ? 'True' : 'False'}
+        aria-label={isTruthy ? getMessage('trueValue') : getMessage('falseValue')}
         className="tanstack-grid__replacement tanstack-grid__replacement--mark"
         style={{ '--presentation-accent': rule.textColor || (isTruthy ? 'var(--success)' : '#b42318') }}
       >
@@ -86,7 +105,7 @@ export function renderPresentationCellContent(cellContent, rule, rawValue) {
 
     return (
       <span
-        aria-label={isCheck ? 'Check mark' : 'Cross mark'}
+        aria-label={isCheck ? getMessage('checkMark') : getMessage('crossMark')}
         className="tanstack-grid__replacement tanstack-grid__replacement--mark"
         style={{ '--presentation-accent': getPresentationAccent(rule) }}
       >
@@ -120,13 +139,14 @@ export class TanStackTableErrorBoundary extends Component {
 
   render() {
     if (this.state.error) {
+      const ErrorPanel = this.props.ErrorPanel ?? GridErrorPanel;
+      const getMessage = this.props.getMessage ?? defaultGetMessage;
+
       return (
         <div className="tanstack-grid">
-          <Alert
-            description={this.state.error?.message ?? 'The grid failed to render.'}
-            message="TanStack table error"
-            showIcon
-            type="error"
+          <ErrorPanel
+            description={this.state.error?.message ?? getMessage('gridFailedToRender')}
+            message={getMessage('tanStackTableError')}
           />
         </div>
       );
@@ -157,6 +177,7 @@ export function AdvancedColumnFilterButton({
   onToggle,
   rows,
   triggerVariant = 'default',
+  getMessage = defaultGetMessage,
 }) {
   const panelRef = useRef(null);
   const menuRef = useRef(null);
@@ -189,8 +210,8 @@ export function AdvancedColumnFilterButton({
     !allVisibleValuesSelected;
   const selectedSummary = allValuesSelected
     ? conditionActive
-      ? 'Rule'
-      : 'All'
+      ? getMessage('rule', 'Rule')
+      : getMessage('all', 'All')
     : `${selectedValues.length}/${allColumnValues.length}`;
   const sortDirection = column.getIsSorted();
 
@@ -334,12 +355,12 @@ export function AdvancedColumnFilterButton({
           isIconTrigger ? 'tanstack-grid__filter-trigger--icon' : '',
           isActive ? 'tanstack-grid__filter-trigger--active' : '',
         )}
-        aria-label={`${isActive ? 'Edit' : 'Add'} filter for ${label}`}
+        aria-label={getMessage(isActive ? 'editFilterFor' : 'addFilterFor', undefined, { label })}
         onClick={(event) => {
           event.stopPropagation();
           onToggle();
         }}
-        title={`${isActive ? 'Edit' : 'Add'} filter for ${label}`}
+        title={getMessage(isActive ? 'editFilterFor' : 'addFilterFor', undefined, { label })}
         type="button"
       >
         {isIconTrigger ? (
@@ -367,7 +388,7 @@ export function AdvancedColumnFilterButton({
             >
               <div className="tanstack-grid__filter-menu-title">
                 <span>{label}</span>
-                <button aria-label="Close filter menu" onClick={onClose} type="button">
+                <button aria-label={getMessage('closeFilterMenu')} onClick={onClose} type="button">
                   ×
                 </button>
               </div>
@@ -378,40 +399,40 @@ export function AdvancedColumnFilterButton({
                   onClick={() => column.toggleSorting(false)}
                   type="button"
                 >
-                  Sort A to Z
+                  {getMessage('sortAtoZ')}
                 </button>
                 <button
                   className={sortDirection === 'desc' ? 'tanstack-grid__filter-menu-action--active' : ''}
                   onClick={() => column.toggleSorting(true)}
                   type="button"
                 >
-                  Sort Z to A
+                  {getMessage('sortZtoA')}
                 </button>
                 <button disabled={!column.getIsSorted()} onClick={() => column.clearSorting()} type="button">
-                  Clear sort
+                  {getMessage('clearSort')}
                 </button>
               </div>
 
               <div className="tanstack-grid__filter-condition">
                 <label className="tanstack-grid__field">
-                  <span>Condition</span>
+                  <span>{getMessage('condition')}</span>
                   <select
                     onChange={(event) => commitFilter({ operator: event.target.value })}
                     value={draftFilterValue.operator}
                   >
                     {advancedFilterOperators.map((operator) => (
                       <option key={operator.value} value={operator.value}>
-                        {operator.label}
+                        {getMessage(advancedFilterOperatorLabelKeys[operator.value] ?? operator.value, operator.label)}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="tanstack-grid__field">
-                  <span>Value</span>
+                  <span>{getMessage('value')}</span>
                   <input
                     disabled={advancedFilterOperatorsWithoutInput.has(draftFilterValue.operator)}
                     onChange={(event) => commitFilter({ query: event.target.value })}
-                    placeholder="Filter value"
+                    placeholder={getMessage('filterValue')}
                     type="text"
                     value={draftFilterValue.query}
                   />
@@ -420,9 +441,9 @@ export function AdvancedColumnFilterButton({
 
               <div className="tanstack-grid__filter-values">
                 <input
-                  aria-label={`Search ${label} values`}
+                  aria-label={getMessage('searchValues', undefined, { label })}
                   onChange={(event) => setValueSearch(event.target.value)}
-                  placeholder="Search values"
+                  placeholder={getMessage('searchValues', undefined, { label })}
                   type="text"
                   value={valueSearch}
                 />
@@ -432,7 +453,7 @@ export function AdvancedColumnFilterButton({
                     indeterminate={someValuesSelected}
                     onChange={toggleVisibleOptions}
                   />
-                  <span>Select all</span>
+                  <span>{getMessage('selectAll')}</span>
                 </label>
                 <div className="tanstack-grid__filter-options">
                   {visibleColumnValues.map((option) => (
@@ -446,7 +467,7 @@ export function AdvancedColumnFilterButton({
                     </label>
                   ))}
                   {visibleColumnValues.length === 0 ? (
-                    <span className="tanstack-grid__filter-empty">No values found</span>
+                    <span className="tanstack-grid__filter-empty">{getMessage('noValuesFound')}</span>
                   ) : null}
                 </div>
               </div>
@@ -460,10 +481,10 @@ export function AdvancedColumnFilterButton({
                   }}
                   type="button"
                 >
-                  Clear
+                  {getMessage('clear')}
                 </button>
                 <button className="tanstack-grid__button--primary" onClick={onClose} type="button">
-                  Done
+                  {getMessage('done')}
                 </button>
               </div>
             </div>,
@@ -555,7 +576,7 @@ export function ContextMenu({ items, onClose, onHeightChange, onSelect, state })
         <ContextMenuItemButton item={item} key={item.key} onSelect={onSelect} />
       ))}
       <button className="tanstack-grid__context-menu-close" onClick={onClose} type="button">
-        Close
+        {state.closeLabel ?? 'Close'}
       </button>
     </div>,
     document.body,

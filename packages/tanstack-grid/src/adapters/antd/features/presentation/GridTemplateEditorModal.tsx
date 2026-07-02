@@ -1,5 +1,5 @@
 import { DeleteOutlined, HolderOutlined, InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Alert, Button, Empty, Input, Modal, Select, Space, Switch, Tooltip } from 'antd';
+import { Alert, Button, Input, Select, Space, Switch, Tooltip } from 'antd';
 import type { DragEndEvent, DraggableAttributes, UniqueIdentifier } from '@dnd-kit/core';
 import {
   closestCenter,
@@ -9,9 +9,10 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import type { ComponentType, CSSProperties, ReactElement, ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
-import type { GridPresentationRule } from '../../../../types';
+import { GridEmptyState, GridModal } from '../../../../components/GridComponents';
+import type { GridEmptyStateProps, GridModalProps, GridPresentationRule } from '../../../../types';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -22,38 +23,38 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 
 const targetOptions = [
-  { label: 'Cell', value: 'cell' },
-  { label: 'Row', value: 'row' },
-  { label: 'Header', value: 'header' },
+  { label: 'Cell', labelKey: 'cell', value: 'cell' },
+  { label: 'Row', labelKey: 'row', value: 'row' },
+  { label: 'Header', labelKey: 'header', value: 'header' },
 ];
 
 const operatorOptions = [
-  { label: 'Contains', value: 'contains' },
-  { label: 'Equals', value: 'equals' },
-  { label: 'Not equals', value: 'notEquals' },
-  { label: 'Starts with', value: 'startsWith' },
-  { label: 'Ends with', value: 'endsWith' },
-  { label: 'Greater than', value: 'greaterThan' },
-  { label: 'Less than', value: 'lessThan' },
-  { label: 'Is empty', value: 'empty' },
-  { label: 'Is not empty', value: 'notEmpty' },
+  { label: 'Contains', labelKey: 'contains', value: 'contains' },
+  { label: 'Equals', labelKey: 'equals', value: 'equals' },
+  { label: 'Not equals', labelKey: 'notEquals', value: 'notEquals' },
+  { label: 'Starts with', labelKey: 'startsWith', value: 'startsWith' },
+  { label: 'Ends with', labelKey: 'endsWith', value: 'endsWith' },
+  { label: 'Greater than', labelKey: 'greaterThan', value: 'greaterThan' },
+  { label: 'Less than', labelKey: 'lessThan', value: 'lessThan' },
+  { label: 'Is empty', labelKey: 'isEmpty', value: 'empty' },
+  { label: 'Is not empty', labelKey: 'isNotEmpty', value: 'notEmpty' },
 ];
 
 const decorationOptions = [
-  { label: 'Success', value: 'success' },
-  { label: 'Warning', value: 'warning' },
-  { label: 'Info', value: 'info' },
-  { label: 'Accent', value: 'accent' },
-  { label: 'Muted', value: 'muted' },
+  { label: 'Success', labelKey: 'success', value: 'success' },
+  { label: 'Warning', labelKey: 'warning', value: 'warning' },
+  { label: 'Info', labelKey: 'info', value: 'info' },
+  { label: 'Accent', labelKey: 'accent', value: 'accent' },
+  { label: 'Muted', labelKey: 'muted', value: 'muted' },
 ];
 
 const cellDisplayOptions = [
-  { label: 'Keep value', value: 'value' },
-  { label: 'Colored dot', value: 'dot' },
-  { label: 'Check mark', value: 'check' },
-  { label: 'Cross mark', value: 'cross' },
-  { label: 'Boolean icon', value: 'booleanIcon' },
-  { label: 'Compact pill', value: 'pill' },
+  { label: 'Keep value', labelKey: 'keepValue', value: 'value' },
+  { label: 'Colored dot', labelKey: 'coloredDot', value: 'dot' },
+  { label: 'Check mark', labelKey: 'checkMarkDisplay', value: 'check' },
+  { label: 'Cross mark', labelKey: 'crossMarkDisplay', value: 'cross' },
+  { label: 'Boolean icon', labelKey: 'booleanIcon', value: 'booleanIcon' },
+  { label: 'Compact pill', labelKey: 'compactPill', value: 'pill' },
 ];
 
 const previewColors = {
@@ -68,6 +69,7 @@ type PreviewDecoration = keyof typeof previewColors;
 
 interface SelectOption {
   label: string;
+  labelKey?: string;
   value: string;
 }
 
@@ -86,6 +88,9 @@ export interface GridTemplateEditorModalProps {
   onUpdateRule?: (ruleId: string, patch: Partial<GridPresentationRule>) => void;
   open: boolean;
   rules?: GridPresentationRule[];
+  getMessage?: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
+  ModalComponent?: ComponentType<GridModalProps>;
+  EmptyState?: ComponentType<GridEmptyStateProps>;
 }
 
 interface ColorFieldProps {
@@ -94,10 +99,12 @@ interface ColorFieldProps {
   onUpdateRule?: GridTemplateEditorModalProps['onUpdateRule'];
   ruleId: string;
   value?: string;
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
 }
 
 interface RulePreviewProps {
   rule: GridPresentationRule;
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
 }
 
 interface GridTemplateEditorDragHandleProps {
@@ -112,6 +119,7 @@ interface SortableRuleCardProps {
 }
 
 interface RuleDragHandleProps {
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
   ruleName: string;
 }
 
@@ -119,7 +127,7 @@ function shouldShowValueInput(operator: string, target: string): boolean {
   return target !== 'header' && operator !== 'empty' && operator !== 'notEmpty';
 }
 
-function ColorField({ colorKey, label, onUpdateRule, ruleId, value }: ColorFieldProps): ReactElement {
+function ColorField({ colorKey, getMessage, label, onUpdateRule, ruleId, value }: ColorFieldProps): ReactElement {
   const [pending, setPending] = useState<string | null>(null);
 
   if (pending !== null) {
@@ -139,10 +147,10 @@ function ColorField({ colorKey, label, onUpdateRule, ruleId, value }: ColorField
           size="small"
           type="primary"
         >
-          OK
+          {getMessage('ok')}
         </Button>
         <Button onClick={() => setPending(null)} size="small">
-          Cancel
+          {getMessage('cancel')}
         </Button>
       </div>
     );
@@ -152,7 +160,7 @@ function ColorField({ colorKey, label, onUpdateRule, ruleId, value }: ColorField
     return (
       <div className="shared-grid-template-editor__color-field">
         <Button onClick={() => setPending('#000000')} size="small">
-          Set custom
+          {getMessage('setAsCustom')}
         </Button>
       </div>
     );
@@ -166,7 +174,7 @@ function ColorField({ colorKey, label, onUpdateRule, ruleId, value }: ColorField
         type="color"
         value={value}
       />
-      <Button onClick={() => onUpdateRule?.(ruleId, { [colorKey]: '' })}>Auto</Button>
+      <Button onClick={() => onUpdateRule?.(ruleId, { [colorKey]: '' })}>{getMessage('autoLabel')}</Button>
     </div>
   );
 }
@@ -175,18 +183,34 @@ function getOptionLabel(options: readonly SelectOption[], value: string): string
   return options.find((option) => option.value === value)?.label ?? value;
 }
 
-function getRuleSummary(rule: GridPresentationRule, columnOptions: readonly SelectOption[]): string {
-  const target = getOptionLabel(targetOptions, rule.target);
+function getLocalizedOptions(
+  options: readonly SelectOption[],
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string,
+): SelectOption[] {
+  return options.map((option) => ({
+    ...option,
+    label: getMessage(option.labelKey ?? option.value, option.label),
+  }));
+}
+
+function getRuleSummary(
+  rule: GridPresentationRule,
+  columnOptions: readonly SelectOption[],
+  localizedTargetOptions: readonly SelectOption[],
+  localizedOperatorOptions: readonly SelectOption[],
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string,
+): string {
+  const target = getOptionLabel(localizedTargetOptions, rule.target);
   const field = getOptionLabel(columnOptions, rule.field);
 
   if (rule.target === 'header') {
-    return `${target} for ${field}`;
+    return getMessage('headerRuleSummary', undefined, { field, target });
   }
 
-  const operator = getOptionLabel(operatorOptions, rule.operator).toLowerCase();
+  const operator = getOptionLabel(localizedOperatorOptions, rule.operator).toLowerCase();
   const value = shouldShowValueInput(rule.operator, rule.target) ? ` "${rule.value || '...'}"` : '';
 
-  return `${target} when ${field} ${operator}${value}`;
+  return getMessage('ruleSummary', undefined, { field, operator, target, value });
 }
 
 type PreviewStyle = CSSProperties & { '--preview-accent'?: string };
@@ -202,9 +226,9 @@ function getPreviewStyle(rule: GridPresentationRule): PreviewStyle {
   };
 }
 
-function RulePreview({ rule }: RulePreviewProps): ReactElement {
+function RulePreview({ getMessage, rule }: RulePreviewProps): ReactElement {
   const cellDisplay = rule.cellDisplay ?? 'value';
-  const previewText = rule.value || 'Example';
+  const previewText = rule.value || getMessage('example', 'Example');
 
   if (rule.target !== 'cell' || cellDisplay === 'value') {
     return (
@@ -244,7 +268,7 @@ function RulePreview({ rule }: RulePreviewProps): ReactElement {
 
 const DragHandleContext = createContext<GridTemplateEditorDragHandleProps | null>(null);
 
-function RuleDragHandle({ ruleName }: RuleDragHandleProps): ReactElement | null {
+function RuleDragHandle({ getMessage, ruleName }: RuleDragHandleProps): ReactElement | null {
   const dragHandleProps = useContext(DragHandleContext);
 
   if (!dragHandleProps) {
@@ -254,9 +278,9 @@ function RuleDragHandle({ ruleName }: RuleDragHandleProps): ReactElement | null 
   const { attributes, listeners, setActivatorNodeRef } = dragHandleProps;
 
   return (
-    <Tooltip title="Drag rule">
+    <Tooltip title={getMessage('dragRule')}>
       <button
-        aria-label={`Drag ${ruleName}`}
+        aria-label={getMessage('dragNamedRule', `Drag ${ruleName}`, { name: ruleName })}
         className="shared-grid-template-editor__drag-handle"
         ref={setActivatorNodeRef}
         type="button"
@@ -300,6 +324,9 @@ function SortableRuleCard({ children, ruleId }: SortableRuleCardProps): ReactEle
 
 export function GridTemplateEditorModal({
   columns = [],
+  EmptyState = GridEmptyState,
+  getMessage = (key, fallback) => fallback ?? key,
+  ModalComponent = GridModal,
   onAddRule,
   onClose,
   onDeleteRule,
@@ -323,6 +350,10 @@ export function GridTemplateEditorModal({
     label: column.label,
     value: column.key,
   }));
+  const localizedTargetOptions = getLocalizedOptions(targetOptions, getMessage);
+  const localizedOperatorOptions = getLocalizedOptions(operatorOptions, getMessage);
+  const localizedDecorationOptions = getLocalizedOptions(decorationOptions, getMessage);
+  const localizedCellDisplayOptions = getLocalizedOptions(cellDisplayOptions, getMessage);
 
   function handleDragEnd(event: DragEndEvent): void {
     if (!event.over || event.active.id === event.over.id) {
@@ -333,29 +364,29 @@ export function GridTemplateEditorModal({
   }
 
   return (
-    <Modal
+    <ModalComponent
       footer={null}
-      onCancel={onClose}
+      onClose={onClose}
       open={open}
-      rootClassName="shared-grid-modal"
-      title="Presentation settings"
+      className="shared-grid-modal"
+      title={getMessage('editPresentation')}
       width={1080}
     >
       <Space className="shared-grid-modal__stack" direction="vertical" size={16}>
         <Alert
           icon={<InfoCircleOutlined />}
-          message="Rules run from top to bottom. Drag cards to change which matching rule wins first."
+          message={getMessage('presentationEditorInfo')}
           showIcon
           type="info"
         />
 
         <div className="shared-grid-template-editor__toolbar">
           <Button icon={<PlusOutlined />} onClick={onAddRule} type="primary">
-            Add rule
+            {getMessage('addPresentationRule')}
           </Button>
           {onReset ? (
             <Button icon={<ReloadOutlined />} onClick={onReset}>
-              Restore defaults
+              {getMessage('restoreDefaults')}
             </Button>
           ) : null}
         </div>
@@ -382,13 +413,13 @@ export function GridTemplateEditorModal({
                             size="small"
                           />
                           <Input
-                            aria-label={`Rule name ${rule.id}`}
+                            aria-label={getMessage('ruleName', undefined, { id: rule.id })}
                             onChange={(event) => onUpdateRule?.(rule.id, { name: event.target.value })}
                             value={rule.name}
                           />
-                          <Tooltip title="Delete rule">
+                          <Tooltip title={getMessage('deleteRule', undefined, { name: rule.name })}>
                             <Button
-                              aria-label={`Delete ${rule.name}`}
+                              aria-label={getMessage('deleteRule', undefined, { name: rule.name })}
                               danger
                               icon={<DeleteOutlined />}
                               onClick={() => onDeleteRule?.(rule.id)}
@@ -400,10 +431,10 @@ export function GridTemplateEditorModal({
                         <div className="shared-grid-template-editor__rule-body">
                           <div className="shared-grid-template-editor__sections">
                             <section className="shared-grid-template-editor__section">
-                              <div className="shared-grid-template-editor__section-title">When</div>
+                              <div className="shared-grid-template-editor__section-title">{getMessage('when')}</div>
                               <div className="shared-grid-template-editor__grid">
                                 <label>
-                                  <span>Target</span>
+                                  <span>{getMessage('target')}</span>
                                   <Select
                                     onChange={(value) =>
                                       onUpdateRule?.(rule.id, {
@@ -411,13 +442,13 @@ export function GridTemplateEditorModal({
                                         operator: value === 'header' ? 'equals' : rule.operator,
                                       })
                                     }
-                                    options={targetOptions}
+                                    options={localizedTargetOptions}
                                     value={rule.target}
                                   />
                                 </label>
 
                                 <label>
-                                  <span>Field</span>
+                                  <span>{getMessage('field')}</span>
                                   <Select
                                     onChange={(value) => onUpdateRule?.(rule.id, { field: value })}
                                     options={columnOptions}
@@ -426,18 +457,18 @@ export function GridTemplateEditorModal({
                                 </label>
 
                                 <label>
-                                  <span>Operator</span>
+                                  <span>{getMessage('operator')}</span>
                                   <Select
                                     disabled={rule.target === 'header'}
                                     onChange={(value) => onUpdateRule?.(rule.id, { operator: value })}
-                                    options={operatorOptions}
+                                    options={localizedOperatorOptions}
                                     value={rule.operator}
                                   />
                                 </label>
 
                                 {valueInputVisible ? (
                                   <label>
-                                    <span>Value</span>
+                                    <span>{getMessage('value')}</span>
                                     <Input
                                       onChange={(event) => onUpdateRule?.(rule.id, { value: event.target.value })}
                                       value={rule.value}
@@ -448,22 +479,23 @@ export function GridTemplateEditorModal({
                             </section>
 
                             <section className="shared-grid-template-editor__section">
-                              <div className="shared-grid-template-editor__section-title">Style</div>
+                              <div className="shared-grid-template-editor__section-title">{getMessage('style')}</div>
                               <div className="shared-grid-template-editor__grid">
                                 <label>
-                                  <span>Preset</span>
+                                  <span>{getMessage('preset')}</span>
                                   <Select
                                     onChange={(value) => onUpdateRule?.(rule.id, { decoration: value })}
-                                    options={decorationOptions}
+                                    options={localizedDecorationOptions}
                                     value={rule.decoration}
                                   />
                                 </label>
 
                                 <label>
-                                  <span>Text</span>
+                                  <span>{getMessage('text')}</span>
                                   <ColorField
                                     colorKey="textColor"
-                                    label="Text color"
+                                    getMessage={getMessage}
+                                    label={getMessage('text')}
                                     onUpdateRule={onUpdateRule}
                                     ruleId={rule.id}
                                     value={rule.textColor}
@@ -471,10 +503,11 @@ export function GridTemplateEditorModal({
                                 </label>
 
                                 <label>
-                                  <span>Background</span>
+                                  <span>{getMessage('background')}</span>
                                   <ColorField
                                     colorKey="backgroundColor"
-                                    label="Background color"
+                                    getMessage={getMessage}
+                                    label={getMessage('background')}
                                     onUpdateRule={onUpdateRule}
                                     ruleId={rule.id}
                                     value={rule.backgroundColor}
@@ -483,10 +516,10 @@ export function GridTemplateEditorModal({
 
                                 {rule.target === 'cell' ? (
                                   <label>
-                                    <span>Display</span>
+                                    <span>{getMessage('display')}</span>
                                     <Select
                                       onChange={(value) => onUpdateRule?.(rule.id, { cellDisplay: value })}
-                                      options={cellDisplayOptions}
+                                      options={localizedCellDisplayOptions}
                                       value={rule.cellDisplay}
                                     />
                                   </label>
@@ -496,17 +529,23 @@ export function GridTemplateEditorModal({
                           </div>
 
                           <aside className="shared-grid-template-editor__preview">
-                            <div className="shared-grid-template-editor__section-title">Preview</div>
+                            <div className="shared-grid-template-editor__section-title">{getMessage('preview')}</div>
                             <div className="shared-grid-template-editor__preview-box">
-                              <RulePreview rule={rule} />
+                              <RulePreview getMessage={getMessage} rule={rule} />
                             </div>
                           </aside>
                         </div>
                         <div className="shared-grid-template-editor__rule-footer">
                           <div className="shared-grid-template-editor__summary">
-                            {getRuleSummary(rule, columnOptions)}
+                            {getRuleSummary(
+                              rule,
+                              columnOptions,
+                              localizedTargetOptions,
+                              localizedOperatorOptions,
+                              getMessage,
+                            )}
                           </div>
-                          <RuleDragHandle ruleName={rule.name} />
+                          <RuleDragHandle getMessage={getMessage} ruleName={rule.name} />
                         </div>
                       </div>
                     </SortableRuleCard>
@@ -516,9 +555,9 @@ export function GridTemplateEditorModal({
             </SortableContext>
           </DndContext>
         ) : (
-          <Empty description="No presentation rules configured." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <EmptyState description={getMessage('noPresentationRules')} />
         )}
       </Space>
-    </Modal>
+    </ModalComponent>
   );
 }

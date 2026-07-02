@@ -63,52 +63,7 @@ export const advancedFilterOperators = [
 
 export const advancedFilterOperatorsWithoutInput = new Set(['empty', 'notEmpty']);
 
-export const defaultPresentationRules = [
-  {
-    id: 'default-live-row',
-    name: 'Live campaigns',
-    enabled: true,
-    target: 'row',
-    field: 'status',
-    operator: 'equals',
-    value: 'Live',
-    decoration: 'success',
-  },
-  {
-    id: 'default-review-status',
-    name: 'Review status cells',
-    enabled: true,
-    target: 'cell',
-    field: 'status',
-    operator: 'equals',
-    value: 'Review',
-    decoration: 'warning',
-    backgroundColor: '#fff4d6',
-    cellDisplay: 'pill',
-    textColor: '#8a5a12',
-  },
-  {
-    id: 'default-high-revenue',
-    name: 'High revenue cells',
-    enabled: true,
-    target: 'cell',
-    field: 'revenue',
-    operator: 'greaterThan',
-    value: '120000',
-    decoration: 'info',
-    cellDisplay: 'dot',
-  },
-  {
-    id: 'default-region-header',
-    name: 'Region header',
-    enabled: true,
-    target: 'header',
-    field: 'region',
-    operator: 'equals',
-    value: '',
-    decoration: 'accent',
-  },
-];
+export const defaultPresentationRules = [];
 
 export const presentationRuleTargets = new Set(['cell', 'row', 'header']);
 export const presentationRuleOperators = new Set([

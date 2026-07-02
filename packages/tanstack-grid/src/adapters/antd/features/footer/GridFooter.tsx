@@ -26,6 +26,7 @@ export interface GridFooterProps {
   disablePaging?: boolean;
   hidePageCount?: boolean;
   hidePageSizeSelector?: boolean;
+  getMessage?: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   pageSize?: number;
@@ -79,6 +80,7 @@ export function GridFooter({
   buttons = [],
   hidePageCount = false,
   hidePageSizeSelector = false,
+  getMessage = (key, fallback) => fallback ?? key,
   disablePaging = false,
   attached = false,
   rowsLabel = 'Rows',
@@ -103,7 +105,12 @@ export function GridFooter({
             total={Math.max(total, totalPages * pageSize)}
           />
         ) : (
-          <span className="shared-grid-footer__page-indicator">Showing all {total} {rowsLabel.toLowerCase()}</span>
+          <span className="shared-grid-footer__page-indicator">
+            {getMessage('showingAllRows', `Showing all ${total} ${rowsLabel.toLowerCase()}`, {
+              rows: rowsLabel.toLowerCase(),
+              total,
+            })}
+          </span>
         )}
       </div>
 

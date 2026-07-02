@@ -60,7 +60,7 @@ export function useGridState<Row>({
   const [editingEnabledState] = useState(initialState.editingEnabled ?? initialEditingEnabled);
   const [showSummary, setShowSummary] = useState(false);
   const [aggregationScope, setAggregationScope] = useState<AggregationScope>('page');
-  const [aggregationColumnId, setAggregationColumnId] = useState('revenue');
+  const [aggregationColumnId, setAggregationColumnId] = useState('');
   const [activeRow, setActiveRow] = useState<Row | null>(null);
   const [lastDoubleClickedRow, setLastDoubleClickedRow] = useState<Row | null>(null);
   const [openFilterColumnId, setOpenFilterColumnId] = useState('');

@@ -78,7 +78,7 @@ describe('core filters, presentation and aggregation', () => {
       { id: 'live', name: 'Live', target: 'row', field: 'status', operator: 'equals', value: 'Live' },
     ]);
 
-    expect(cloneDefaultPresentationRules().length).toBeGreaterThan(0);
+    expect(cloneDefaultPresentationRules()).toEqual([]);
     expect(getMatchingPresentationRule([rule], { row: rows[0], target: 'row' })).toMatchObject({ id: 'live' });
     expect(getMatchingPresentationRule([rule], { row: rows[1], target: 'row' })).toBeUndefined();
   });

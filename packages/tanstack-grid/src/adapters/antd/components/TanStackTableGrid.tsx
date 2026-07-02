@@ -1,7 +1,7 @@
 import type { Cell, Header, Row, Table } from '@tanstack/react-table';
 import { flexRender } from '@tanstack/react-table';
-import { Empty, Tooltip } from 'antd';
-import type { HTMLAttributes, MouseEvent, ReactNode, RefObject, TableHTMLAttributes } from 'react';
+import { Tooltip } from 'antd';
+import type { ComponentType, HTMLAttributes, MouseEvent, ReactNode, RefObject, TableHTMLAttributes } from 'react';
 
 // Enable CSS custom properties (variables) in React inline style objects.
 // csstype v3 requires explicit opt-in; see https://github.com/frenic/csstype#what-should-i-do-when-i-get-type-errors
@@ -19,7 +19,7 @@ import {
   getPresentationTooltip,
 } from '../../../core/tablePresentationRules';
 import { callOptionalHandler, getResolvedProps, mergeClassNames } from '../../../core/tableUtils';
-import type { GridPresentationRule } from '../../../types';
+import type { GridEmptyStateProps, GridPresentationRule } from '../../../types';
 import { AdvancedColumnFilterButton, renderPresentationCellContent } from './TanStackTableComponents';
 
 const HEADER_TOOLTIP_CLASS_NAMES = { root: 'tanstack-grid__header-tooltip' };
@@ -45,7 +45,9 @@ type AnyData = any;
 
 interface TanStackTableGridProps {
   activeRow: AnyData;
+  EmptyState: ComponentType<GridEmptyStateProps>;
   enableAltRow?: boolean;
+  getMessage?: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
   getCellProps?: (context: Record<string, unknown>) => Record<string, unknown>;
   getHeaderProps?: (context: Record<string, unknown>) => Record<string, unknown>;
   getRowProps?: (context: Record<string, unknown>) => Record<string, unknown>;
@@ -90,7 +92,9 @@ function wrapHeaderLabelWithTooltip(content: ReactNode, header: Header<AnyData, 
 
 export function TanStackTableGrid({
   activeRow,
+  EmptyState,
   enableAltRow = false,
+  getMessage = (key, fallback) => fallback ?? key,
   getCellProps,
   getHeaderProps,
   getRowProps,
@@ -230,6 +234,7 @@ export function TanStackTableGrid({
                                 }
                                 rows={rows}
                                 triggerVariant="icon"
+                                getMessage={getMessage}
                               />
                             </span>
                           ) : null}
@@ -331,6 +336,7 @@ export function TanStackTableGrid({
                             renderedCellContent,
                             cellPresentationRule,
                             rawCellValue,
+                            getMessage,
                           )}
                         </div>
                       </td>
@@ -342,7 +348,7 @@ export function TanStackTableGrid({
           ) : (
             <tr>
               <td className="tanstack-grid__empty-cell" colSpan={table.getVisibleLeafColumns().length}>
-                <Empty description="No rows match the current search and filters." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <EmptyState description={getMessage('emptyState')} />
               </td>
             </tr>
           )}

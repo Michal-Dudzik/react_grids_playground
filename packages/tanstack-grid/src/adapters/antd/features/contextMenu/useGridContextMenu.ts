@@ -40,7 +40,7 @@ export function useGridContextMenu({
   setOpenFilterColumnId,
   setShowFilters,
   table,
-  getMessage = (_key, fallback) => fallback,
+  getMessage = (key, fallback) => fallback ?? key,
   updateColumnFilter,
   visibleRows,
 }) {
@@ -68,11 +68,12 @@ export function useGridContextMenu({
 
     setContextMenu({
       ...position,
+      closeLabel: getMessage('close'),
       columnId: header.column.id,
       label: `${getMessage('columnTitlePrefix')}: ${getColumnLabel(header.column)}`,
       target: 'header',
     });
-  }, []);
+  }, [getMessage]);
 
   const openCellContextMenu = useCallback((event, cell, row) => {
     event.preventDefault();
@@ -83,6 +84,7 @@ export function useGridContextMenu({
     setContextMenu({
       ...position,
       cellId: cell.id,
+      closeLabel: getMessage('close'),
       columnId: cell.column.id,
       displayValue: getColumnDisplayText(cell.column, getCellValue(row, cell.column.id), 'export'),
       label: `${row.original?.id ?? row.id ?? String(row.index ?? '<row>')} · ${getColumnLabel(cell.column)}`,
@@ -90,7 +92,7 @@ export function useGridContextMenu({
       target: 'cell',
       value: getCellValue(row, cell.column.id),
     });
-  }, []);
+  }, [getMessage]);
 
   function buildHeaderContextMenuItems(menuState) {
     const column = table.getColumn(menuState.columnId);

@@ -1,5 +1,5 @@
 import { PrinterOutlined } from '@ant-design/icons';
-import { Alert, Button, Dropdown } from 'antd';
+import { Button, Dropdown } from 'antd';
 import { forwardRef, useCallback, useEffect, type ComponentType, type ReactNode } from 'react';
 import './styles.css';
 import { TanStackTableSummaryPanel } from './adapters/antd/features/aggregation/TanStackTableSummaryPanel';
@@ -19,14 +19,14 @@ import { useGridRef } from './hooks/useGridRef';
 import { useGridState } from './hooks/useGridState';
 import { useGridTableConfiguration } from './hooks/useGridTableConfiguration';
 import { useAutoPageSize, useDismissibleLayer, useSelectionReport } from './hooks/tableHooks';
-import { baseColumns, initialRows } from './core/tableColumns';
 import { createGridMessageResolver } from './core/gridIntl';
+import { buildGridThemeStyle, mergeGridComponents, useGridConfig } from './config/GridProvider';
 import {
   getEmptyAdvancedFilterValue,
   isAdvancedFilterConfigured,
   normalizeAdvancedFilterValue,
 } from './core/tableFilters';
-import type { TanStackGridProps, TanStackGridRef } from './types';
+import type { GridErrorPanelProps, TanStackGridProps, TanStackGridRef } from './types';
 
 function getDefaultRowId(row: unknown) {
   return String((row as { id?: string | number }).id ?? '');
@@ -40,10 +40,10 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     clipboardAdapter,
     columnRequest = fetch,
     columnPreferences = {},
-    columns: localColumns = baseColumns,
+    columns: localColumnsProp,
     contextMenuConfig = {},
     controlledState = {},
-    defaultColumns = baseColumns,
+    defaultColumns,
     data: compatRows,
     editingEnabled: controlledEditingEnabled,
     exportAdapter,
@@ -56,17 +56,19 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     gridId,
     enableAltRow = true,
     initialState = {},
-    initialAutoPageSize = true,
-    initialEditingEnabled = true,
-    initialPageSize = 10,
-    initialRowDensity = 'standard',
-    initialSelectionMode = 'multi',
-    initialShowAllRows = false,
+    initialAutoPageSize,
+    initialEditingEnabled,
+    initialPageSize,
+    initialRowDensity,
+    initialSelectionMode,
+    initialShowAllRows,
     labels,
     loading = false,
-    locale = 'en-US',
+    locale,
     formatMessage,
-    footerConfig = {},
+    components,
+    themeTokens,
+    footerConfig,
     onRowActivate,
     onPageSizeChange,
     onRowDoubleClick,
@@ -89,22 +91,56 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   },
   ref,
 ) {
-  const localRows = localRowsProp ?? compatRows ?? initialRows;
-  const getMessage = createGridMessageResolver({ formatMessage, labels });
+  const providerConfig = useGridConfig();
+  const effectiveLocale = locale ?? providerConfig.locale ?? 'en-US';
+  const effectiveFormatMessage = formatMessage ?? providerConfig.formatMessage;
+  const effectiveLabels = {
+    ...(providerConfig.labels ?? {}),
+    ...(labels ?? {}),
+  };
+  const effectiveComponents = mergeGridComponents(providerConfig.components, components);
+  const effectiveThemeStyle = buildGridThemeStyle({
+    ...(providerConfig.themeTokens ?? {}),
+    ...(themeTokens ?? {}),
+  });
+  const providerDefaults = providerConfig.defaults ?? {};
+  const effectiveFooterConfig = {
+    ...(providerDefaults.footerConfig ?? {}),
+    ...(footerConfig ?? {}),
+  };
+  const effectiveFeatures = {
+    ...(providerDefaults.features ?? {}),
+    ...features,
+  };
+  const effectiveInitialAutoPageSize = initialAutoPageSize ?? providerDefaults.initialAutoPageSize ?? true;
+  const effectiveInitialEditingEnabled = initialEditingEnabled ?? providerDefaults.initialEditingEnabled ?? true;
+  const effectiveInitialPageSize = initialPageSize ?? providerDefaults.initialPageSize ?? 10;
+  const effectiveInitialRowDensity = initialRowDensity ?? providerDefaults.initialRowDensity ?? 'standard';
+  const effectiveInitialSelectionMode = initialSelectionMode ?? providerDefaults.initialSelectionMode ?? 'multi';
+  const effectiveInitialShowAllRows = initialShowAllRows ?? providerDefaults.initialShowAllRows ?? false;
+  const localRows = localRowsProp ?? compatRows ?? [];
+  const localColumns = localColumnsProp ?? [];
+  const effectiveDefaultColumns = defaultColumns ?? localColumns;
+  const EmptyState = effectiveComponents.EmptyState;
+  const ErrorPanel = effectiveComponents.ErrorPanel;
+  const LoadingOverlay = effectiveComponents.LoadingOverlay;
+  const ModalComponent = effectiveComponents.Modal;
+  const Spinner = effectiveComponents.Spinner;
+  const getMessage = createGridMessageResolver({ formatMessage: effectiveFormatMessage, labels: effectiveLabels });
 
   const gridState = useGridState({
     autoPageSize: controlledAutoPageSize,
     columnPreferences,
     controlledState,
     editingEnabled: controlledEditingEnabled,
-    features,
+    features: effectiveFeatures,
     fetchColumns,
-    initialAutoPageSize,
-    initialEditingEnabled,
-    initialPageSize,
-    initialRowDensity,
-    initialSelectionMode,
-    initialShowAllRows,
+    initialAutoPageSize: effectiveInitialAutoPageSize,
+    initialEditingEnabled: effectiveInitialEditingEnabled,
+    initialPageSize: effectiveInitialPageSize,
+    initialRowDensity: effectiveInitialRowDensity,
+    initialSelectionMode: effectiveInitialSelectionMode,
+    initialShowAllRows: effectiveInitialShowAllRows,
     initialState,
     localRows,
     onSaveColumnPreferences,
@@ -116,12 +152,12 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
 
   const tableConfig = useGridTableConfiguration({
     columnRequest,
-    defaultColumns,
+    defaultColumns: effectiveDefaultColumns,
     editingEnabled: gridState.editingEnabled,
     getRowId,
     loadColumns: gridState.loadColumns,
     localColumns,
-    locale,
+    locale: effectiveLocale,
     pagination: gridState.pagination,
     persistence,
     rowSelection: gridState.rowSelection,
@@ -141,7 +177,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     aggregationConfig,
     aggregationScope: gridState.aggregationScope,
     columnFilters: tableConfig.columnFilters,
-    locale,
+    locale: effectiveLocale,
     pagination: gridState.pagination,
     rowDensity: gridState.rowDensity,
     showAllRows: gridState.showAllRows,
@@ -227,11 +263,9 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     columnsModalOpen,
     fitAllColumnWidths,
     fitColumnWidth,
-    moveColumn,
     openColumnSettingsModal,
     orderedDataColumnIds,
     reorderColumnSettings,
-    resetColumnSettings,
     resetColumnSettingsDraft,
     saveColumnSettings,
     syncColumnWidthsFromDom,
@@ -272,7 +306,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     table: tableConfig.table,
   });
 
-  const showExportPdf = footerConfig.showExportPdf ?? gridState.featureFlags.print;
+  const showExportPdf = effectiveFooterConfig.showExportPdf ?? gridState.featureFlags.print;
 
   const { copyContextRow, exportFilteredRows, printMenuItems, printRows } = useGridExportPrint({
     clipboardAdapter,
@@ -311,7 +345,6 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     openCellContextMenu,
     openHeaderContextMenu,
   } = useGridContextMenu({
-    activateRow,
     activeColumnFilters: computations.activeColumnFilters,
     clearColumnFilters,
     clearSearch,
@@ -321,21 +354,11 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     fitAllColumnWidths,
     fitColumnWidth,
     globalFilter: tableConfig.globalFilter,
-    moveColumn,
-    onOpenColumnSettings: openColumnSettingsModal,
-    orderedDataColumnIds,
-    resetColumnSettings,
-    rowSelection: gridState.rowSelection,
-    selectionMode: gridState.selectionMode,
     setOpenFilterColumnId: gridState.setOpenFilterColumnId,
-    setRowSelection: gridState.setRowSelection,
     setShowFilters: tableConfig.setShowFilters,
-    syncColumnWidthsFromDom,
     table: tableConfig.table,
-    printAdapter,
     getMessage,
     updateColumnFilter,
-    visibleExportColumns: computations.visibleExportColumns,
     visibleRows: computations.visibleRows,
   });
 
@@ -386,36 +409,36 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         key: 'print',
         title: getMessage('print'),
       },
-    ...(footerConfig.buttons ?? []),
+    ...(effectiveFooterConfig.buttons ?? []),
     ],
-    showColumnsSettings: footerConfig.showColumnsSettings ?? gridState.featureFlags.columnSettings,
-    showExportExcel: footerConfig.showExportExcel ?? gridState.featureFlags.export,
+    showColumnsSettings: effectiveFooterConfig.showColumnsSettings ?? gridState.featureFlags.columnSettings,
+    showExportExcel: effectiveFooterConfig.showExportExcel ?? gridState.featureFlags.export,
     showExportPdf: false,
-    showFilter: footerConfig.showFilter ?? gridState.featureFlags.filtering,
-    showPresentationSettings: footerConfig.showPresentationSettings ?? gridState.featureFlags.presentation,
+    showFilter: effectiveFooterConfig.showFilter ?? gridState.featureFlags.filtering,
+    showPresentationSettings: effectiveFooterConfig.showPresentationSettings ?? gridState.featureFlags.presentation,
     presentationSettingsActive: gridState.templateEditorOpen,
-    showPrint: footerConfig.showPrint ?? gridState.featureFlags.print,
-    showSummary: footerConfig.showSummary ?? gridState.featureFlags.summary,
+    showPrint: effectiveFooterConfig.showPrint ?? gridState.featureFlags.print,
+    showSummary: effectiveFooterConfig.showSummary ?? gridState.featureFlags.summary,
     summaryVisible: gridState.showSummary,
   });
 
   const tableLoading = loading || tableConfig.apiColumnsLoading;
 
   return (
-    <div className="tanstack-grid">
+    <div className="tanstack-grid" style={effectiveThemeStyle}>
       <div aria-busy={tableLoading} className="tanstack-grid__surface">
         {tableLoading ? (
-          <div className="tanstack-grid__loading-overlay" role="status">
-            {tableConfig.apiColumnsLoading ? getMessage('loadingColumns') : getMessage('loadingTable')}
-          </div>
+          <LoadingOverlay
+            label={tableConfig.apiColumnsLoading ? getMessage('loadingColumns') : getMessage('loadingTable')}
+            Spinner={Spinner}
+          />
         ) : null}
 
         {tableConfig.apiColumnsError ? (
-          <Alert
+          <ErrorPanel
             className="tanstack-grid__inline-panel"
             message={getMessage('columnApiFallback')}
             description={`${tableConfig.apiColumnsError} ${getMessage('renderingFallbackColumns')}`}
-            showIcon
             type="warning"
           />
         ) : null}
@@ -458,8 +481,10 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
           tableWrapRef={gridState.tableWrapRef}
           tableWrapperProps={tableWrapperProps}
           visibleRows={computations.visibleRows}
+          EmptyState={EmptyState}
+          getMessage={getMessage}
         />
-        {footerConfig.showFooter !== false ? (
+        {effectiveFooterConfig.showFooter !== false ? (
           <GridFooter
             attached
             buttons={footerButtons}
@@ -480,7 +505,8 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
             placeholder: getMessage('searchPlaceholder'),
           }}
             total={computations.matchingRows.length}
-            hidePageCount={footerConfig.hidePageCount}
+            hidePageCount={effectiveFooterConfig.hidePageCount}
+            getMessage={getMessage}
             rowsLabel={getMessage('rows')}
             totalPages={Math.max(tableConfig.table.getPageCount(), 1)}
           />
@@ -499,6 +525,8 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         onSave={saveColumnSettings}
         open={columnsModalOpen}
         title={getMessage('columnSettings')}
+        getMessage={getMessage}
+        ModalComponent={ModalComponent}
       />
 
       <GridTemplateEditorModal
@@ -511,6 +539,8 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         onUpdateRule={updatePresentationRule}
         open={gridState.templateEditorOpen}
         rules={tableConfig.presentationRules}
+        getMessage={getMessage}
+        ModalComponent={ModalComponent}
       />
 
       <ContextMenu
@@ -525,13 +555,24 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
 });
 
 export const TanStackGrid = forwardRef<TanStackGridRef, TanStackGridProps>(function TanStackGrid(props, ref) {
+  const providerConfig = useGridConfig();
+  const Components = mergeGridComponents(providerConfig.components, props.components);
+  const getMessage = createGridMessageResolver({
+    formatMessage: props.formatMessage ?? providerConfig.formatMessage,
+    labels: {
+      ...(providerConfig.labels ?? {}),
+      ...(props.labels ?? {}),
+    },
+  });
   const ErrorBoundary = TanStackTableErrorBoundary as ComponentType<{
     children?: ReactNode;
+    ErrorPanel?: ComponentType<GridErrorPanelProps>;
+    getMessage?: ReturnType<typeof createGridMessageResolver>;
     onError?: TanStackGridProps['onError'];
   }>;
 
   return (
-    <ErrorBoundary onError={props.onError}>
+    <ErrorBoundary ErrorPanel={Components.ErrorPanel} getMessage={getMessage} onError={props.onError}>
       <TanStackGridContent {...props} ref={ref} />
     </ErrorBoundary>
   );

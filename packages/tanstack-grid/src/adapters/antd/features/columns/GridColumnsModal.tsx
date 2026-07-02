@@ -1,5 +1,5 @@
 import { HolderOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Button, Checkbox, InputNumber, Modal, Space, Tooltip } from 'antd';
+import { Button, Checkbox, InputNumber, Space, Tooltip } from 'antd';
 import type { DragEndEvent, DraggableAttributes, UniqueIdentifier } from '@dnd-kit/core';
 import {
   closestCenter,
@@ -18,8 +18,10 @@ import {
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import clsx from 'clsx';
-import type { ReactElement } from 'react';
+import type { ComponentType, ReactElement } from 'react';
+import { GridModal } from '../../../../components/GridComponents';
 import { MIN_COLUMN_WIDTH } from '../../../../core/tableConfig';
+import type { GridModalProps } from '../../../../types';
 
 export interface GridColumnsModalColumn {
   key: string;
@@ -42,17 +44,21 @@ interface GridColumnsModalDragHandleProps {
 interface GridColumnsModalRowProps {
   column: GridColumnsModalColumn;
   dragHandleProps?: GridColumnsModalDragHandleProps;
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
 }
 
 interface SortableGridColumnsModalRowProps {
   column: GridColumnsModalColumn;
+  getMessage: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
 }
 
 export interface GridColumnsModalProps {
   columns?: GridColumnsModalColumn[];
   description?: string;
   error?: string;
+  getMessage?: (key: string, fallback?: string, values?: Record<string, unknown>) => string;
   isSaving?: boolean;
+  ModalComponent?: ComponentType<GridModalProps>;
   onClose?: () => void;
   onReorderColumns?: (activeColumnId: UniqueIdentifier, overColumnId: UniqueIdentifier) => void;
   onReset?: () => void;
@@ -61,7 +67,7 @@ export interface GridColumnsModalProps {
   title?: string;
 }
 
-function GridColumnsModalRow({ column, dragHandleProps }: GridColumnsModalRowProps): ReactElement {
+function GridColumnsModalRow({ column, dragHandleProps, getMessage }: GridColumnsModalRowProps): ReactElement {
   return (
     <>
       <div className="shared-grid-columns-modal__identity">
@@ -77,7 +83,7 @@ function GridColumnsModalRow({ column, dragHandleProps }: GridColumnsModalRowPro
       <div className="shared-grid-columns-modal__controls">
         {column.width !== undefined ? (
           <label className="shared-grid-columns-modal__width">
-            <span>Width</span>
+            <span>{getMessage('width', 'Width')}</span>
             <InputNumber
               addonAfter="px"
               disabled={column.widthDisabled}
@@ -92,9 +98,9 @@ function GridColumnsModalRow({ column, dragHandleProps }: GridColumnsModalRowPro
         ) : null}
 
         {dragHandleProps ? (
-          <Tooltip title="Drag column">
+          <Tooltip title={getMessage('dragColumn', 'Drag column')}>
             <Button
-              aria-label={`Drag ${column.label}`}
+              aria-label={getMessage('dragNamedColumn', `Drag ${column.label}`, { label: column.label })}
               className="shared-grid-columns-modal__drag-handle"
               icon={<HolderOutlined />}
               size="small"
@@ -110,7 +116,7 @@ function GridColumnsModalRow({ column, dragHandleProps }: GridColumnsModalRowPro
   );
 }
 
-function SortableGridColumnsModalRow({ column }: SortableGridColumnsModalRowProps): ReactElement {
+function SortableGridColumnsModalRow({ column, getMessage }: SortableGridColumnsModalRowProps): ReactElement {
   const {
     attributes,
     isDragging,
@@ -136,6 +142,7 @@ function SortableGridColumnsModalRow({ column }: SortableGridColumnsModalRowProp
     >
       <GridColumnsModalRow
         column={column}
+        getMessage={getMessage}
         dragHandleProps={{
           attributes,
           listeners,
@@ -150,13 +157,15 @@ export function GridColumnsModal({
   columns = [],
   description,
   error,
+  getMessage = (key, fallback) => fallback ?? key,
   isSaving = false,
+  ModalComponent = GridModal,
   onClose,
   onReorderColumns,
   onReset,
   onSave,
   open,
-  title = 'Edit columns',
+  title,
 }: GridColumnsModalProps): ReactElement {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -191,32 +200,32 @@ export function GridColumnsModal({
   }
 
   return (
-    <Modal
+    <ModalComponent
       centered
       footer={
         <div className="shared-grid-columns-modal__footer">
           <div className="shared-grid-columns-modal__footer-start">
             {onReset ? (
               <Button disabled={isSaving} icon={<ReloadOutlined />} onClick={onReset}>
-                Reset defaults
+                {getMessage('resetDefaults', 'Reset to defaults')}
               </Button>
             ) : null}
           </div>
           <Space size={8}>
             <Button disabled={isSaving} onClick={handleCancel}>
-              Cancel
+              {getMessage('cancel', 'Cancel')}
             </Button>
             <Button loading={isSaving} onClick={handleSave} type="primary">
-              Save
+              {getMessage('save', 'Save')}
             </Button>
           </Space>
         </div>
       }
-      onCancel={handleCancel}
+      onClose={handleCancel}
       open={open}
-      title={title}
+      title={title ?? getMessage('columnSettings', 'Column settings')}
     >
-      <Space className="shared-grid-modal__stack" orientation="vertical" size={12}>
+      <Space className="shared-grid-modal__stack" direction="vertical" size={12}>
         {description ? <p className="shared-grid-modal__description">{description}</p> : null}
         {error ? <p className="shared-grid-modal__error">{error}</p> : null}
         {onReorderColumns ? (
@@ -228,18 +237,18 @@ export function GridColumnsModal({
           >
             <SortableContext items={columns.map((column) => column.key)} strategy={verticalListSortingStrategy}>
               {columns.map((column) => (
-                <SortableGridColumnsModalRow column={column} key={column.key} />
+                <SortableGridColumnsModalRow column={column} getMessage={getMessage} key={column.key} />
               ))}
             </SortableContext>
           </DndContext>
         ) : (
           columns.map((column) => (
             <div className="shared-grid-columns-modal__row" key={column.key}>
-              <GridColumnsModalRow column={column} />
+              <GridColumnsModalRow column={column} getMessage={getMessage} />
             </div>
           ))
         )}
       </Space>
-    </Modal>
+    </ModalComponent>
   );
 }

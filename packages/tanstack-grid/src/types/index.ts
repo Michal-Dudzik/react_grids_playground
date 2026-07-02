@@ -1,5 +1,5 @@
 import type { ColumnDef, RowData, Table, VisibilityState } from '@tanstack/react-table';
-import type { CSSProperties, HTMLAttributes, ReactNode, TableHTMLAttributes } from 'react';
+import type { ComponentType, CSSProperties, HTMLAttributes, ReactNode, TableHTMLAttributes } from 'react';
 import type { AggregationConfig } from '../core/tableAggregation';
 import type { GridStateAdapter } from '../adapters/browser';
 
@@ -31,6 +31,65 @@ export type GridFormatMessage = (
 
 export interface GridLabels {
   [key: string]: string;
+}
+
+export interface GridThemeTokens {
+  accent?: string;
+  accentSoft?: string;
+  accentStrong?: string;
+  background?: string;
+  border?: string;
+  borderStrong?: string;
+  danger?: string;
+  info?: string;
+  rowAltBackground?: string;
+  shadow?: string;
+  success?: string;
+  surface?: string;
+  surfaceMuted?: string;
+  text?: string;
+  textMuted?: string;
+  warning?: string;
+}
+
+export interface GridSpinnerProps {
+  label?: ReactNode;
+  size?: 'small' | 'default' | 'large';
+}
+
+export interface GridLoadingOverlayProps {
+  label?: ReactNode;
+  Spinner?: ComponentType<GridSpinnerProps>;
+}
+
+export interface GridModalProps {
+  centered?: boolean;
+  children?: ReactNode;
+  className?: string;
+  footer?: ReactNode;
+  onClose?: () => void;
+  open: boolean;
+  title?: ReactNode;
+  width?: number | string;
+}
+
+export interface GridErrorPanelProps {
+  className?: string;
+  description?: ReactNode;
+  message?: ReactNode;
+  type?: 'error' | 'warning';
+}
+
+export interface GridEmptyStateProps {
+  description?: ReactNode;
+}
+
+export interface GridComponents {
+  EmptyState?: ComponentType<GridEmptyStateProps>;
+  ErrorPanel?: ComponentType<GridErrorPanelProps>;
+  LoadingOverlay?: ComponentType<GridLoadingOverlayProps>;
+  Modal?: ComponentType<GridModalProps>;
+  Spinner?: ComponentType<GridSpinnerProps>;
 }
 
 export interface GridFooterButtonConfig {
@@ -98,6 +157,26 @@ export interface GridFeatureFlags {
   print?: boolean;
   selection?: boolean;
   summary?: boolean;
+}
+
+export interface GridDefaults {
+  features?: GridFeatureFlags;
+  footerConfig?: GridFooterConfig;
+  initialAutoPageSize?: boolean;
+  initialEditingEnabled?: boolean;
+  initialPageSize?: number;
+  initialRowDensity?: string;
+  initialSelectionMode?: string;
+  initialShowAllRows?: boolean;
+}
+
+export interface GridProviderValue {
+  components?: GridComponents;
+  defaults?: GridDefaults;
+  formatMessage?: GridFormatMessage;
+  labels?: Partial<GridLabels> & Record<string, string>;
+  locale?: string;
+  themeTokens?: GridThemeTokens;
 }
 
 export interface GridPresentationRule {
@@ -189,6 +268,8 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   locale?: string;
   labels?: Partial<GridLabels> & Record<string, string>;
   formatMessage?: GridFormatMessage;
+  components?: GridComponents;
+  themeTokens?: GridThemeTokens;
   footerConfig?: GridFooterConfig;
   onAutoPageSizeChange?: (enabled: boolean) => void;
   onEditingEnabledChange?: (enabled: boolean) => void;

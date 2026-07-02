@@ -24,9 +24,9 @@ export function createPresentationRule(overrides: Partial<GridPresentationRule> 
     name: 'New rule',
     enabled: true,
     target: 'cell',
-    field: 'status',
+    field: '',
     operator: 'equals',
-    value: 'Live',
+    value: '',
     decoration: 'info',
     backgroundColor: '',
     cellDisplay: 'value',
@@ -51,7 +51,7 @@ export function normalizePresentationRule(rule: unknown, index = 0): GridPresent
     name: String(source?.name || `Rule ${index + 1}`),
     enabled: source?.enabled !== false,
     target,
-    field: String(source?.field || 'status'),
+    field: String(source?.field || ''),
     operator: target === 'header' ? 'equals' : operator,
     value: String(source?.value ?? ''),
     decoration,
@@ -63,7 +63,7 @@ export function normalizePresentationRule(rule: unknown, index = 0): GridPresent
 
 export function normalizePresentationRules(rules: unknown): GridPresentationRule[] {
   if (!Array.isArray(rules)) {
-    return cloneDefaultPresentationRules();
+    return [];
   }
 
   return rules.map((rule, index) => normalizePresentationRule(rule, index));
