@@ -5,7 +5,7 @@ import {
   buildCsvValue,
   buildXlsxContent,
 } from '../../../../core/tableUtils';
-import type { GridClipboardAdapter, GridExportAdapter, GridPrintAdapter } from '../../../../types';
+import type { GridClipboardAdapter, GridExportAdapter, GridPresentationRule, GridPrintAdapter } from '../../../../types';
 import { copyText, downloadXlsxFile, openPrintWindow } from '../../../browser';
 
 type PrintMode = 'selected' | 'all' | 'page';
@@ -16,6 +16,7 @@ export interface UseGridExportPrintOptions<TData extends RowData = RowData> {
   exportAdapter?: GridExportAdapter;
   exportPdfLabel?: string;
   includeExportPdf?: boolean;
+  presentationRules?: GridPresentationRule[];
   printAdapter?: GridPrintAdapter;
   selectedRows?: Row<TData>[];
   visibleExportColumns?: Column<TData, unknown>[];
@@ -28,15 +29,16 @@ export function useGridExportPrint<TData extends RowData = RowData>({
   exportAdapter,
   exportPdfLabel = 'Export PDF',
   includeExportPdf = false,
+  presentationRules = [],
   printAdapter,
   selectedRows = [],
   visibleExportColumns = [],
   visibleRows = [],
 }: UseGridExportPrintOptions<TData> = {}) {
   const exportFilteredRows = useCallback(() => {
-    const xlsxContent = buildXlsxContent(visibleExportColumns, matchingRows);
+    const xlsxContent = buildXlsxContent(visibleExportColumns, matchingRows, { presentationRules });
     (exportAdapter?.downloadXlsxFile ?? downloadXlsxFile)('tanstack-table-export.xlsx', xlsxContent);
-  }, [exportAdapter, visibleExportColumns, matchingRows]);
+  }, [exportAdapter, visibleExportColumns, matchingRows, presentationRules]);
 
   const printRows = useCallback(
     (mode: PrintMode) => {

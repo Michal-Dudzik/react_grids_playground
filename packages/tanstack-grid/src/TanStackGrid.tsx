@@ -280,6 +280,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     exportPdfLabel: getMessage('exportPdf'),
     includeExportPdf: showExportPdf,
     matchingRows: computations.matchingRows,
+    presentationRules: tableConfig.presentationRules,
     printAdapter,
     selectedRows: computations.selectedRows,
     visibleExportColumns: computations.visibleExportColumns,

@@ -157,4 +157,24 @@ describe('core context and export payload helpers', () => {
     expect(decodedContent).toContain('<sheet name="Orders"');
     expect(decodedContent).toContain('Ava');
   });
+
+  it('exports formatted numeric values as right-aligned Excel numbers', () => {
+    const columns = [
+      { id: 'amount', columnDef: { header: 'Amount' }, getSize: () => 120 },
+    ];
+    const exportRows = [
+      {
+        original: { amount: 1200 },
+        getValue() {
+          return '$1,200';
+        },
+      },
+    ];
+    const xlsxContent = buildXlsxContent(columns as any, exportRows as any);
+    const decodedContent = new TextDecoder().decode(xlsxContent);
+
+    expect(decodedContent).toContain('<v>1200</v>');
+    expect(decodedContent).toContain('horizontal="right"');
+    expect(decodedContent).toContain('formatCode="&quot;$&quot;#,##0"');
+  });
 });

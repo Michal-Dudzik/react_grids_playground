@@ -1,5 +1,6 @@
 import { defaultContextMenuConfig, MIN_COLUMN_WIDTH } from './tableConfig';
 import { getColumnDisplayText } from './tableDisplay';
+import { getMatchingPresentationRule, getPresentationStyle } from './tablePresentationRules';
 
 export function reorderItems(items, activeId, overId) {
   const getItemId = (item) => (typeof item === 'string' ? item : item.id);
@@ -139,6 +140,7 @@ const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 const ZIP_DOS_DATE_2020_01_01 = (40 << 9) | (1 << 5) | 1;
 
 export interface BuildXlsxContentOptions {
+  presentationRules?: unknown[];
   sheetName?: string;
 }
 
@@ -157,13 +159,21 @@ function escapeXmlAttribute(value) {
   return escapeXmlText(value).replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 }
 
-function buildInlineStringCell(cellReference, value) {
+function buildCellStyleAttribute(styleIndex) {
+  return styleIndex ? ` s="${styleIndex}"` : '';
+}
+
+function buildInlineStringCell(cellReference, value, styleIndex = 0) {
   const normalizedValue = removeInvalidXmlCharacters(value);
   const preserveWhitespace = /^\s|\s$/.test(normalizedValue) ? ' xml:space="preserve"' : '';
 
-  return `<c r="${cellReference}" t="inlineStr"><is><t${preserveWhitespace}>${escapeXmlText(
+  return `<c r="${cellReference}" t="inlineStr"${buildCellStyleAttribute(styleIndex)}><is><t${preserveWhitespace}>${escapeXmlText(
     normalizedValue,
   )}</t></is></c>`;
+}
+
+function buildNumberCell(cellReference, value, styleIndex = 0) {
+  return `<c r="${cellReference}"${buildCellStyleAttribute(styleIndex)}><v>${value}</v></c>`;
 }
 
 function columnIndexToName(index) {
@@ -184,7 +194,474 @@ function normalizeWorksheetName(sheetName = 'Grid Export') {
   return (normalizedName || 'Grid Export').slice(0, 31);
 }
 
-function buildWorksheetXml(columns, matrix) {
+function normalizeHorizontalAlignment(value) {
+  const normalizedValue = String(value ?? '').trim().toLowerCase();
+
+  if (['center', 'centre', 'middle', 'm'].includes(normalizedValue)) {
+    return 'center';
+  }
+
+  if (['right', 'r'].includes(normalizedValue)) {
+    return 'right';
+  }
+
+  if (['left', 'l'].includes(normalizedValue)) {
+    return 'left';
+  }
+
+  return '';
+}
+
+function getColumnMeta(column) {
+  return column?.columnDef?.meta ?? column?.meta ?? {};
+}
+
+function getOriginalColumn(column) {
+  return getColumnMeta(column)?.originalColumn ?? {};
+}
+
+function getColumnTextAlignment(column) {
+  const meta = getColumnMeta(column);
+  const originalColumn = getOriginalColumn(column);
+
+  return normalizeHorizontalAlignment(
+    meta.excelTextAlign ??
+      meta.textAlign ??
+      column?.columnDef?.textAlign ??
+      column?.textAlign ??
+      originalColumn.textAlign ??
+      originalColumn.alignment,
+  );
+}
+
+function getColumnFormat(column) {
+  const meta = getColumnMeta(column);
+  const originalColumn = getOriginalColumn(column);
+
+  return String(meta.excelFormat ?? column?.columnDef?.format ?? column?.format ?? originalColumn.format ?? '');
+}
+
+function getColumnDisplayType(column) {
+  const meta = getColumnMeta(column);
+  const originalColumn = getOriginalColumn(column);
+  const display = meta.display ?? column?.columnDef?.meta?.display ?? column?.meta?.display ?? null;
+
+  return String(
+    meta.excelType ??
+      display?.type ??
+      column?.columnDef?.type ??
+      column?.type ??
+      originalColumn.type ??
+      originalColumn.colType ??
+      originalColumn.colValueAccessor ??
+      '',
+  ).toLowerCase();
+}
+
+function detectCurrencySymbol(value) {
+  const text = String(value ?? '');
+
+  if (/\bzł\b|zł|\bpln\b/i.test(text)) {
+    return 'zł';
+  }
+
+  if (text.includes('$') || /\busd\b/i.test(text)) {
+    return '$';
+  }
+
+  if (text.includes('€') || /\beur\b/i.test(text)) {
+    return '€';
+  }
+
+  if (text.includes('£') || /\bgbp\b/i.test(text)) {
+    return '£';
+  }
+
+  return '';
+}
+
+function getDecimalPlaces(value) {
+  const text = String(value);
+  const decimalPart = text.includes('.') ? text.split('.').at(-1) : '';
+
+  return decimalPart ? decimalPart.length : 0;
+}
+
+function parseExportNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return {
+      decimalPlaces: getDecimalPlaces(value),
+      isCurrency: false,
+      number: value,
+      symbol: '',
+    };
+  }
+
+  const textValue = String(value ?? '').trim();
+
+  if (!textValue || !/[0-9]/.test(textValue) || /^\d{4}-\d{2}-\d{2}/.test(textValue)) {
+    return null;
+  }
+
+  const symbol = detectCurrencySymbol(textValue);
+  const negative = /^\(.*\)$/.test(textValue) || /^-/.test(textValue);
+  const cleanedValue = textValue
+    .replace(/[()]/g, '')
+    .replace(/[$€£¥]|zł|\b(pln|usd|eur|gbp)\b/gi, '')
+    .replace(/\s+/g, '')
+    .replace(/^\+/, '');
+
+  if (/[^0-9,.-]/.test(cleanedValue)) {
+    return null;
+  }
+
+  const unsignedValue = cleanedValue.replace(/^-/, '');
+  const lastDotIndex = unsignedValue.lastIndexOf('.');
+  const lastCommaIndex = unsignedValue.lastIndexOf(',');
+  let decimalSeparator = '';
+
+  if (lastDotIndex >= 0 && lastCommaIndex >= 0) {
+    decimalSeparator = lastDotIndex > lastCommaIndex ? '.' : ',';
+  } else {
+    const separator = lastDotIndex >= 0 ? '.' : lastCommaIndex >= 0 ? ',' : '';
+    const parts = separator ? unsignedValue.split(separator) : [unsignedValue];
+
+    if (separator && parts.length === 2 && parts[1].length > 0 && parts[1].length !== 3) {
+      decimalSeparator = separator;
+    }
+  }
+
+  const groupSeparator = decimalSeparator === '.' ? ',' : decimalSeparator === ',' ? '.' : '';
+  let normalizedValue = unsignedValue;
+
+  if (groupSeparator) {
+    normalizedValue = normalizedValue.replaceAll(groupSeparator, '');
+  }
+
+  if (decimalSeparator) {
+    normalizedValue = normalizedValue.replace(decimalSeparator, '.');
+  } else {
+    normalizedValue = normalizedValue.replace(/[,.]/g, '');
+  }
+
+  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
+    return null;
+  }
+
+  const number = Number(`${negative ? '-' : ''}${normalizedValue}`);
+
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+
+  return {
+    decimalPlaces: getDecimalPlaces(normalizedValue),
+    isCurrency: Boolean(symbol),
+    number,
+    symbol,
+  };
+}
+
+function isCurrencyColumn(column, rawValue, displayValue, parsedNumber) {
+  const format = getColumnFormat(column).toLowerCase();
+  const displayType = getColumnDisplayType(column);
+
+  return (
+    parsedNumber?.isCurrency ||
+    detectCurrencySymbol(rawValue) ||
+    detectCurrencySymbol(displayValue) ||
+    ['currency', 'money'].includes(displayType) ||
+    /^c\d*$/i.test(format) ||
+    format.includes('currency')
+  );
+}
+
+function getNumberFormatCode({ column, decimalPlaces, isCurrency, rawValue, displayValue }) {
+  const format = getColumnFormat(column).toLowerCase();
+  const effectiveDecimalPlaces = Math.max(
+    Number.isFinite(Number(decimalPlaces)) ? Number(decimalPlaces) : 0,
+    /\.\d+$/.test(format) || /n2|c2|f2/.test(format) ? 2 : 0,
+  );
+  const numberFormat = effectiveDecimalPlaces > 0 ? '#,##0.00' : '#,##0';
+
+  if (!isCurrency) {
+    return numberFormat;
+  }
+
+  const symbol = detectCurrencySymbol(rawValue) || detectCurrencySymbol(displayValue);
+
+  if (['$', '€', '£'].includes(symbol)) {
+    return `"${symbol}"${numberFormat}`;
+  }
+
+  if (symbol) {
+    return `${numberFormat} "${symbol}"`;
+  }
+
+  return numberFormat;
+}
+
+function excelDateSerial(date) {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+
+  return Math.floor(utcDate / millisecondsPerDay) + 25569;
+}
+
+function getDateCellValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (String(value).startsWith('1900-01-01')) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return excelDateSerial(parsedDate);
+}
+
+function normalizeHexColor(value) {
+  const color = String(value ?? '').trim();
+
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.slice(1).toUpperCase() : '';
+}
+
+function getPresentationCellStyle({ column, presentationRules, row, target }) {
+  const rule = getMatchingPresentationRule(presentationRules, {
+    columnId: column.id,
+    row,
+    target,
+  });
+  const style = getPresentationStyle(rule);
+
+  return {
+    fillColor: normalizeHexColor(style.backgroundColor),
+    fontColor: normalizeHexColor(style.color),
+  };
+}
+
+function createXlsxStyleRegistry() {
+  const fonts = [{ bold: false, color: '' }];
+  const fills = [{ color: '' }, { color: 'gray125' }];
+  const borders = [{ grid: false }, { grid: true }];
+  const fontKeys = new Map([['false|', 0]]);
+  const fillKeys = new Map([
+    ['', 0],
+    ['gray125', 1],
+  ]);
+  const borderKeys = new Map([
+    ['false', 0],
+    ['true', 1],
+  ]);
+  const numFmtCodeToId = new Map();
+  const styleKeyToIndex = new Map();
+  const cellXfs = [];
+
+  function getFontId({ bold = false, color = '' }) {
+    const normalizedColor = normalizeHexColor(color);
+    const key = `${Boolean(bold)}|${normalizedColor}`;
+
+    if (!fontKeys.has(key)) {
+      fontKeys.set(key, fonts.length);
+      fonts.push({ bold: Boolean(bold), color: normalizedColor });
+    }
+
+    return fontKeys.get(key);
+  }
+
+  function getFillId(color = '') {
+    const normalizedColor = normalizeHexColor(color);
+
+    if (!normalizedColor) {
+      return 0;
+    }
+
+    if (!fillKeys.has(normalizedColor)) {
+      fillKeys.set(normalizedColor, fills.length);
+      fills.push({ color: normalizedColor });
+    }
+
+    return fillKeys.get(normalizedColor);
+  }
+
+  function getBorderId(grid = false) {
+    return borderKeys.get(String(Boolean(grid))) ?? 0;
+  }
+
+  function getNumFmtId(formatCode = '') {
+    if (!formatCode) {
+      return 0;
+    }
+
+    const builtInFormats = new Map([
+      ['#,##0', 3],
+      ['#,##0.00', 4],
+    ]);
+
+    if (builtInFormats.has(formatCode)) {
+      return builtInFormats.get(formatCode);
+    }
+
+    if (!numFmtCodeToId.has(formatCode)) {
+      numFmtCodeToId.set(formatCode, 165 + numFmtCodeToId.size);
+    }
+
+    return numFmtCodeToId.get(formatCode);
+  }
+
+  function getStyleIndex({
+    alignment = '',
+    bold = false,
+    border = false,
+    fillColor = '',
+    fontColor = '',
+    formatCode = '',
+  } = {}) {
+    const fontId = getFontId({ bold, color: fontColor });
+    const fillId = getFillId(fillColor);
+    const borderId = getBorderId(border);
+    const numFmtId = getNumFmtId(formatCode);
+    const key = [fontId, fillId, borderId, numFmtId, alignment].join('|');
+
+    if (!styleKeyToIndex.has(key)) {
+      styleKeyToIndex.set(key, cellXfs.length);
+      cellXfs.push({
+        alignment,
+        borderId,
+        fillId,
+        fontId,
+        numFmtId,
+      });
+    }
+
+    return styleKeyToIndex.get(key);
+  }
+
+  getStyleIndex();
+
+  return {
+    borders,
+    cellXfs,
+    fills,
+    fonts,
+    getStyleIndex,
+    numFmtCodeToId,
+  };
+}
+
+function buildFontXml(font) {
+  return `<font>${font.bold ? '<b/>' : ''}${font.color ? `<color rgb="FF${font.color}"/>` : ''}<sz val="11"/><name val="Calibri"/></font>`;
+}
+
+function buildFillXml(fill) {
+  if (fill.color === 'gray125') {
+    return '<fill><patternFill patternType="gray125"/></fill>';
+  }
+
+  if (!fill.color) {
+    return '<fill><patternFill patternType="none"/></fill>';
+  }
+
+  return `<fill><patternFill patternType="solid"><fgColor rgb="FF${fill.color}"/><bgColor indexed="64"/></patternFill></fill>`;
+}
+
+function buildBorderXml(border) {
+  if (!border.grid) {
+    return '<border><left/><right/><top/><bottom/><diagonal/></border>';
+  }
+
+  return '<border><left style="thin"><color rgb="FFD8CDC0"/></left><right style="thin"><color rgb="FFD8CDC0"/></right><top style="thin"><color rgb="FFD8CDC0"/></top><bottom style="thin"><color rgb="FFD8CDC0"/></bottom><diagonal/></border>';
+}
+
+function buildCellXfXml(style) {
+  const alignmentXml = style.alignment ? `<alignment horizontal="${style.alignment}"/>` : '';
+
+  return `<xf numFmtId="${style.numFmtId}" fontId="${style.fontId}" fillId="${style.fillId}" borderId="${style.borderId}" xfId="0"${
+    style.numFmtId ? ' applyNumberFormat="1"' : ''
+  }${style.alignment ? ' applyAlignment="1"' : ''}${style.fillId ? ' applyFill="1"' : ''}${
+    style.fontId ? ' applyFont="1"' : ''
+  }${style.borderId ? ' applyBorder="1"' : ''}>${alignmentXml}</xf>`;
+}
+
+function getHeaderStyleIndex(column, styleRegistry) {
+  return styleRegistry.getStyleIndex({
+    alignment: getColumnTextAlignment(column),
+    bold: true,
+    border: true,
+    fillColor: 'F4EDE3',
+  });
+}
+
+function getDataCellDescriptor(column, row, value, displayValue, options) {
+  const presentationStyle = getPresentationCellStyle({
+    column,
+    presentationRules: options.presentationRules,
+    row,
+    target: 'cell',
+  });
+  const rowPresentationStyle = getPresentationCellStyle({
+    column,
+    presentationRules: options.presentationRules,
+    row,
+    target: 'row',
+  });
+  const columnAlignment = getColumnTextAlignment(column);
+  const displayType = getColumnDisplayType(column);
+  const dateValue = displayType === 'date' ? getDateCellValue(value) : null;
+
+  if (dateValue !== null) {
+    return {
+      kind: 'number',
+      styleIndex: options.styleRegistry.getStyleIndex({
+        alignment: columnAlignment || 'right',
+        fillColor: presentationStyle.fillColor || rowPresentationStyle.fillColor,
+        fontColor: presentationStyle.fontColor || rowPresentationStyle.fontColor,
+        formatCode: 'yyyy-mm-dd',
+      }),
+      value: dateValue,
+    };
+  }
+
+  const parsedNumber = parseExportNumber(value) ?? parseExportNumber(displayValue);
+  const currency = isCurrencyColumn(column, value, displayValue, parsedNumber);
+
+  if (parsedNumber) {
+    return {
+      kind: 'number',
+      styleIndex: options.styleRegistry.getStyleIndex({
+        alignment: columnAlignment || 'right',
+        fillColor: presentationStyle.fillColor || rowPresentationStyle.fillColor,
+        fontColor: presentationStyle.fontColor || rowPresentationStyle.fontColor,
+        formatCode: getNumberFormatCode({
+          column,
+          decimalPlaces: parsedNumber.decimalPlaces,
+          displayValue,
+          isCurrency: currency,
+          rawValue: value,
+        }),
+      }),
+      value: parsedNumber.number,
+    };
+  }
+
+  return {
+    kind: 'string',
+    styleIndex: options.styleRegistry.getStyleIndex({
+      alignment: columnAlignment,
+      fillColor: presentationStyle.fillColor || rowPresentationStyle.fillColor,
+      fontColor: presentationStyle.fontColor || rowPresentationStyle.fontColor,
+    }),
+    value: displayValue,
+  };
+}
+
+function buildWorksheetXml(columns, matrix, options: any = {}) {
   const columnCount = Math.max(columns.length, 1);
   const rowCount = Math.max(matrix.length, 1);
   const dimensionRef = `A1:${columnIndexToName(columnCount)}${rowCount}`;
@@ -199,8 +676,25 @@ function buildWorksheetXml(columns, matrix) {
   const rows = matrix
     .map((row, rowIndex) => {
       const rowNumber = rowIndex + 1;
+      const tableRow = options.tableRows?.[rowIndex - 1];
       const cells = row
-        .map((value, columnIndex) => buildInlineStringCell(`${columnIndexToName(columnIndex + 1)}${rowNumber}`, value))
+        .map((value, columnIndex) => {
+          const column = columns[columnIndex];
+          const cellReference = `${columnIndexToName(columnIndex + 1)}${rowNumber}`;
+
+          if (rowIndex === 0) {
+            return buildInlineStringCell(cellReference, value, getHeaderStyleIndex(column, options.styleRegistry));
+          }
+
+          const rawValue = getRowExportValue(column, tableRow);
+          const descriptor = getDataCellDescriptor(column, tableRow, rawValue, value, options);
+
+          if (descriptor.kind === 'number') {
+            return buildNumberCell(cellReference, descriptor.value, descriptor.styleIndex);
+          }
+
+          return buildInlineStringCell(cellReference, descriptor.value, descriptor.styleIndex);
+        })
         .join('');
 
       return `<row r="${rowNumber}">${cells}</row>`;
@@ -230,8 +724,22 @@ function buildContentTypesXml() {
   return `${XML_DECLARATION}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${XLSX_MIME_TYPE}.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
 }
 
-function buildStylesXml() {
-  return `${XML_DECLARATION}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+function buildStylesXml(styleRegistry = createXlsxStyleRegistry()) {
+  const numFmts = [...styleRegistry.numFmtCodeToId.entries()]
+    .map(([formatCode, id]) => `<numFmt numFmtId="${id}" formatCode="${escapeXmlAttribute(formatCode)}"/>`)
+    .join('');
+  const fonts = styleRegistry.fonts.map(buildFontXml).join('');
+  const fills = styleRegistry.fills.map(buildFillXml).join('');
+  const borders = styleRegistry.borders.map(buildBorderXml).join('');
+  const cellXfs = styleRegistry.cellXfs.map(buildCellXfXml).join('');
+
+  return `${XML_DECLARATION}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${
+    numFmts ? `<numFmts count="${styleRegistry.numFmtCodeToId.size}">${numFmts}</numFmts>` : ''
+  }<fonts count="${styleRegistry.fonts.length}">${fonts}</fonts><fills count="${
+    styleRegistry.fills.length
+  }">${fills}</fills><borders count="${styleRegistry.borders.length}">${borders}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${
+    styleRegistry.cellXfs.length
+  }">${cellXfs}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 }
 
 function buildCrcTable() {
@@ -382,14 +890,20 @@ function buildZipArchive(files) {
 export function buildXlsxContent(columns, tableRows, options: BuildXlsxContentOptions = {}) {
   const matrix = buildExportMatrix(columns, tableRows);
   const sheetName = normalizeWorksheetName(options.sheetName);
+  const styleRegistry = createXlsxStyleRegistry();
+  const worksheetXml = buildWorksheetXml(columns, matrix, {
+    presentationRules: Array.isArray(options.presentationRules) ? options.presentationRules : [],
+    styleRegistry,
+    tableRows,
+  });
 
   return buildZipArchive([
     { path: '[Content_Types].xml', content: buildContentTypesXml() },
     { path: '_rels/.rels', content: buildRootRelationshipsXml() },
     { path: 'xl/workbook.xml', content: buildWorkbookXml(sheetName) },
     { path: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelationshipsXml() },
-    { path: 'xl/worksheets/sheet1.xml', content: buildWorksheetXml(columns, matrix) },
-    { path: 'xl/styles.xml', content: buildStylesXml() },
+    { path: 'xl/worksheets/sheet1.xml', content: worksheetXml },
+    { path: 'xl/styles.xml', content: buildStylesXml(styleRegistry) },
   ]);
 }
 
