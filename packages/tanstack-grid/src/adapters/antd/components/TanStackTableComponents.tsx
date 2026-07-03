@@ -93,7 +93,7 @@ export function renderPresentationCellContent(cellContent, rule, rawValue, getMe
       <span
         aria-label={isTruthy ? getMessage('trueValue') : getMessage('falseValue')}
         className="tanstack-grid__replacement tanstack-grid__replacement--mark"
-        style={{ '--presentation-accent': rule.textColor || (isTruthy ? 'var(--success)' : '#b42318') }}
+        style={{ '--presentation-accent': rule.textColor || (isTruthy ? 'var(--success)' : 'var(--ts-grid-danger)') }}
       >
         {isTruthy ? '✓' : '×'}
       </span>

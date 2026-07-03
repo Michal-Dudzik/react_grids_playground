@@ -58,11 +58,11 @@ const cellDisplayOptions = [
 ];
 
 const previewColors = {
-  accent: { background: 'rgba(182, 84, 60, 0.14)', text: '#8f3d29' },
-  info: { background: 'rgba(62, 114, 168, 0.12)', text: '#3e72a8' },
-  muted: { background: 'rgba(98, 86, 73, 0.12)', text: '#625649' },
-  success: { background: 'rgba(47, 143, 99, 0.12)', text: '#2f8f63' },
-  warning: { background: 'rgba(197, 127, 37, 0.14)', text: '#8a5a12' },
+  accent: { background: 'var(--ts-grid-accent-soft)', text: 'var(--ts-grid-accent-strong)' },
+  info: { background: 'rgb(var(--color-info, 62 114 168) / 0.12)', text: 'var(--ts-grid-info)' },
+  muted: { background: 'rgb(var(--color-text-muted, 98 86 73) / 0.12)', text: 'var(--ts-grid-text-muted)' },
+  success: { background: 'rgb(var(--color-success, 47 143 99) / 0.12)', text: 'var(--ts-grid-success)' },
+  warning: { background: 'rgb(var(--color-warning, 197 127 37) / 0.14)', text: 'var(--ts-grid-warning)' },
 } as const;
 
 type PreviewDecoration = keyof typeof previewColors;

@@ -1,4 +1,8 @@
 .tanstack-grid,
+body,
+.ant-dropdown,
+.ant-select-dropdown,
+.ant-tooltip,
 .shared-grid-modal,
 .tanstack-grid__filter-menu,
 .tanstack-grid__context-menu {
@@ -14,8 +18,10 @@
   --ts-grid-accent-soft: rgb(var(--color-button-accent, 182 84 60) / 0.14);
   --ts-grid-success: rgb(var(--color-success, 47 143 99));
   --ts-grid-warning: rgb(var(--color-warning, 197 127 37));
+  --ts-grid-danger: rgb(var(--color-danger, 185 62 53));
   --ts-grid-info: rgb(var(--color-info, 62 114 168));
   --ts-grid-shadow-md: 0 16px 34px rgb(var(--color-shadow, 17 33 47) / 0.12);
+  --ts-grid-on-accent: rgb(var(--color-background-default, 255 253 248));
   --accent: var(--ts-grid-accent);
   --info: var(--ts-grid-info);
   --success: var(--ts-grid-success);
@@ -100,7 +106,7 @@
 .tanstack-grid__button--primary {
   border-color: transparent;
   background: var(--ts-grid-accent);
-  color: #fff5ee;
+  color: var(--ts-grid-on-accent);
 }
 
 .tanstack-grid__column-settings {
@@ -345,7 +351,7 @@
 .tanstack-grid__filter-menu-footer .tanstack-grid__button--primary {
   border-color: transparent;
   background: var(--ts-grid-accent);
-  color: #fff5ee;
+  color: var(--ts-grid-on-accent);
 }
 
 .tanstack-grid__filter-actions {
@@ -504,6 +510,50 @@
   line-height: 1.35;
 }
 
+.ant-tooltip .ant-tooltip-inner,
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown {
+  border: 1px solid var(--ts-grid-border-strong);
+  background: var(--ts-grid-surface);
+  color: var(--ts-grid-text);
+  box-shadow: var(--ts-grid-shadow-md);
+}
+
+.ant-tooltip .ant-tooltip-arrow::before {
+  background: var(--ts-grid-surface);
+}
+
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title,
+.ant-select-dropdown .ant-select-item {
+  color: var(--ts-grid-text);
+}
+
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item:hover,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title:hover,
+.ant-select-dropdown .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: var(--ts-grid-accent-soft);
+  color: var(--ts-grid-text);
+}
+
+.ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled),
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-selected {
+  background: var(--ts-grid-accent);
+  color: var(--ts-grid-on-accent);
+}
+
+.ant-select-dropdown .ant-select-item-option-selected .ant-select-item-option-content,
+.ant-select-dropdown .ant-select-item-option-selected .ant-select-item-option-state,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-selected .ant-dropdown-menu-title-content {
+  color: var(--ts-grid-on-accent);
+}
+
+.ant-select-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled):hover,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item-selected:hover {
+  background: var(--ts-grid-accent-strong);
+  color: var(--ts-grid-on-accent);
+}
+
 .tanstack-grid__sr-only {
   position: absolute;
   width: 1px;
@@ -517,7 +567,7 @@
 }
 
 .tanstack-grid__row--selected td {
-  background: rgba(62, 114, 168, 0.08);
+  background: rgb(var(--color-info, 62 114 168) / 0.08);
 }
 
 .tanstack-grid__row--active td {
@@ -527,19 +577,19 @@
 .tanstack-grid__presentation-row--ts-grid-success td,
 .tanstack-grid__table td.tanstack-grid__presentation-cell--ts-grid-success,
 .tanstack-grid__table th.tanstack-grid__presentation-header--ts-grid-success {
-  background: rgba(47, 143, 99, 0.12);
+  background: rgb(var(--color-success, 47 143 99) / 0.12);
 }
 
 .tanstack-grid__presentation-row--ts-grid-warning td,
 .tanstack-grid__table td.tanstack-grid__presentation-cell--ts-grid-warning,
 .tanstack-grid__table th.tanstack-grid__presentation-header--ts-grid-warning {
-  background: rgba(197, 127, 37, 0.13);
+  background: rgb(var(--color-warning, 197 127 37) / 0.13);
 }
 
 .tanstack-grid__presentation-row--ts-grid-info td,
 .tanstack-grid__table td.tanstack-grid__presentation-cell--ts-grid-info,
 .tanstack-grid__table th.tanstack-grid__presentation-header--ts-grid-info {
-  background: rgba(62, 114, 168, 0.12);
+  background: rgb(var(--color-info, 62 114 168) / 0.12);
 }
 
 .tanstack-grid__presentation-row--ts-grid-accent td,
@@ -551,7 +601,7 @@
 .tanstack-grid__presentation-row--muted td,
 .tanstack-grid__table td.tanstack-grid__presentation-cell--muted,
 .tanstack-grid__table th.tanstack-grid__presentation-header--muted {
-  background: rgba(98, 86, 73, 0.1);
+  background: rgb(var(--color-text-muted, 98 86 73) / 0.1);
 }
 
 .tanstack-grid__table td.tanstack-grid__presentation-cell--ts-grid-success {
@@ -631,6 +681,13 @@
   border-radius: 999px;
   background: var(--presentation-accent, currentColor);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--presentation-accent, currentColor) 16%, transparent);
+}
+
+.tanstack-grid input[type='checkbox'],
+.tanstack-grid input[type='radio'],
+.tanstack-grid__filter-menu input[type='checkbox'],
+.tanstack-grid__filter-menu input[type='radio'] {
+  accent-color: var(--ts-grid-accent);
 }
 
 .tanstack-grid__replacement--mark {
@@ -721,9 +778,9 @@
 .tanstack-grid__aggregation-item {
   min-height: 34px;
   padding: 6px 10px;
-  border: 1px solid rgba(62, 114, 168, 0.18);
+  border: 1px solid rgb(var(--color-info, 62 114 168) / 0.18);
   border-radius: 999px;
-  background: rgba(62, 114, 168, 0.08);
+  background: rgb(var(--color-info, 62 114 168) / 0.08);
   color: var(--ts-grid-text);
 }
 
@@ -833,7 +890,7 @@
 .search-highlight {
   padding: 0 2px;
   border-radius: 4px;
-  background: rgba(224, 141, 88, 0.28);
+  background: rgb(var(--color-button-accent, 182 84 60) / 0.22);
   color: inherit;
 }
 
@@ -841,10 +898,43 @@
   width: min(240px, 100%);
 }
 
-.shared-grid-search .ant-input-group-addon .ant-btn {
-  background: var(--ts-grid-accent);
+.shared-grid-search .ant-input-group-addon .ant-btn,
+.shared-grid-search .ant-input-search-button,
+.shared-grid-search .ant-input-search-btn,
+.shared-grid-search .ant-btn.ant-input-search-btn,
+.shared-grid-search .ant-btn.ant-input-search-button {
   border-color: var(--ts-grid-accent);
-  color: #fff5ee;
+  background: var(--ts-grid-accent);
+  color: var(--ts-grid-on-accent);
+}
+
+.shared-grid-search .ant-input-group-addon .ant-btn:not(:disabled):hover,
+.shared-grid-search .ant-input-group-addon .ant-btn:not(:disabled):focus-visible,
+.shared-grid-search .ant-input-group-addon .ant-btn:not(:disabled):active,
+.shared-grid-search .ant-input-search-button:not(:disabled):hover,
+.shared-grid-search .ant-input-search-button:not(:disabled):focus-visible,
+.shared-grid-search .ant-input-search-button:not(:disabled):active,
+.shared-grid-search .ant-input-search-btn:not(:disabled):hover,
+.shared-grid-search .ant-input-search-btn:not(:disabled):focus-visible,
+.shared-grid-search .ant-input-search-btn:not(:disabled):active,
+.shared-grid-search .ant-btn.ant-input-search-btn:not(:disabled):hover,
+.shared-grid-search .ant-btn.ant-input-search-btn:not(:disabled):focus-visible,
+.shared-grid-search .ant-btn.ant-input-search-btn:not(:disabled):active,
+.shared-grid-search .ant-btn.ant-input-search-button:not(:disabled):hover,
+.shared-grid-search .ant-btn.ant-input-search-button:not(:disabled):focus-visible,
+.shared-grid-search .ant-btn.ant-input-search-button:not(:disabled):active {
+  border-color: var(--ts-grid-accent-strong);
+  background: var(--ts-grid-accent-strong);
+  color: var(--ts-grid-on-accent);
+}
+
+.shared-grid-search .ant-input-search-button:disabled,
+.shared-grid-search .ant-input-search-btn:disabled,
+.shared-grid-search .ant-btn.ant-input-search-btn:disabled,
+.shared-grid-search .ant-btn.ant-input-search-button:disabled {
+  border-color: var(--ts-grid-border);
+  background: var(--ts-grid-surface-muted);
+  color: var(--ts-grid-text-muted);
 }
 
 .shared-grid-footer {
@@ -927,6 +1017,28 @@
   line-height: 24px;
 }
 
+.shared-grid-footer .ant-pagination .ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link {
+  color: var(--ts-grid-text-muted);
+}
+
+.shared-grid-footer .ant-pagination .ant-pagination-prev:not(.ant-pagination-disabled):hover .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-prev:not(.ant-pagination-disabled):focus-visible .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-next:not(.ant-pagination-disabled):hover .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-next:not(.ant-pagination-disabled):focus-visible .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-item-link:not(:disabled):hover,
+.shared-grid-footer .ant-pagination .ant-pagination-item-link:not(:disabled):focus-visible,
+.shared-grid-footer .ant-pagination .ant-pagination-item-link:not(:disabled):active {
+  border-color: transparent;
+  background: var(--ts-grid-accent-soft);
+  color: var(--ts-grid-accent);
+}
+
+.shared-grid-footer .ant-pagination .ant-pagination-prev.ant-pagination-disabled .ant-pagination-item-link,
+.shared-grid-footer .ant-pagination .ant-pagination-next.ant-pagination-disabled .ant-pagination-item-link {
+  color: rgb(var(--color-text-muted, 98 86 73) / 0.42);
+}
+
 .shared-grid-footer .ant-pagination.ant-pagination-simple .ant-pagination-simple-pager {
   height: 24px;
   margin-inline: 4px;
@@ -959,14 +1071,22 @@
 .shared-grid-footer__actions .ant-btn-primary {
   background: var(--ts-grid-accent);
   border-color: var(--ts-grid-accent);
-  color: #fff5ee;
+  color: var(--ts-grid-on-accent);
 }
 
 .shared-grid-footer__actions .ant-btn-primary:not(:disabled):hover,
 .shared-grid-footer__actions .ant-btn-primary:not(:disabled):focus-visible {
   background: var(--ts-grid-accent-strong);
   border-color: var(--ts-grid-accent-strong);
-  color: #fff5ee;
+  color: var(--ts-grid-on-accent);
+}
+
+.shared-grid-footer .ant-btn-default:not(:disabled):hover,
+.shared-grid-footer .ant-btn-default:not(:disabled):focus-visible,
+.shared-grid-footer .ant-btn-variant-outlined:not(.ant-btn-disabled):not([disabled]):hover,
+.shared-grid-footer .ant-btn-variant-outlined:not(.ant-btn-disabled):not([disabled]):focus-visible {
+  border-color: var(--ts-grid-accent);
+  color: var(--ts-grid-accent);
 }
 
 .shared-grid-footer .ant-select .ant-select-selector,
@@ -998,13 +1118,25 @@
   color: var(--ts-grid-text);
 }
 
+.shared-grid-footer .ant-pagination .ant-pagination-simple-pager input:hover,
+.shared-grid-footer .ant-pagination .ant-pagination-simple-pager input:focus,
+.shared-grid-footer .ant-pagination .ant-pagination-simple-pager input:focus-visible {
+  border-color: var(--ts-grid-accent);
+  box-shadow: 0 0 0 2px rgb(var(--color-button-accent, 182 84 60) / 0.18);
+  outline: 0;
+}
+
+.shared-grid-footer .ant-divider {
+  border-color: var(--ts-grid-border);
+}
+
 .shared-grid-columns {
   min-width: 220px;
   padding: 14px;
   border: 1px solid var(--ts-grid-border);
   border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 18px 40px rgba(34, 28, 20, 0.12);
+  background: var(--ts-grid-surface);
+  box-shadow: var(--ts-grid-shadow-md);
 }
 
 .shared-grid-summary-bar {
@@ -1016,8 +1148,9 @@
 .shared-grid-summary-bar__tag {
   margin-inline-end: 0;
   padding: 6px 10px;
+  border-color: rgb(var(--color-info, 62 114 168) / 0.2);
   border-radius: 999px;
-  background: rgba(62, 114, 168, 0.1);
+  background: rgb(var(--color-info, 62 114 168) / 0.1);
   color: var(--ts-grid-text);
 }
 
@@ -1025,9 +1158,182 @@
   width: 100%;
 }
 
-.shared-grid-modal .ant-modal-content {
+.shared-grid-modal .ant-modal-content,
+.shared-grid-modal .ant-modal-container {
   background: var(--ts-grid-surface);
   color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-modal-header,
+.shared-grid-modal .ant-modal-body,
+.shared-grid-modal .ant-modal-footer {
+  background: transparent;
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-modal-title,
+.shared-grid-modal .ant-modal-close,
+.shared-grid-modal .ant-checkbox-wrapper,
+.shared-grid-modal .ant-form-item-label > label {
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-modal-close:hover,
+.shared-grid-modal .ant-btn-text:not(:disabled):hover,
+.shared-grid-modal .ant-btn-text:not(:disabled):focus-visible {
+  background: var(--ts-grid-accent-soft);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-btn-default:not(.ant-btn-primary) {
+  border-color: var(--ts-grid-border);
+  background: var(--ts-grid-surface-muted);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-btn-default:not(:disabled):hover,
+.shared-grid-modal .ant-btn-default:not(:disabled):focus-visible,
+.shared-grid-modal .ant-btn-default:not(:disabled):active,
+.shared-grid-modal .ant-btn-variant-outlined:not(.ant-btn-disabled):not([disabled]):hover,
+.shared-grid-modal .ant-btn-variant-outlined:not(.ant-btn-disabled):not([disabled]):focus-visible,
+.shared-grid-modal .ant-btn-variant-outlined:not(.ant-btn-disabled):not([disabled]):active,
+.shared-grid-modal .ant-btn-outlined:not(.ant-btn-disabled):not([disabled]):hover,
+.shared-grid-modal .ant-btn-outlined:not(.ant-btn-disabled):not([disabled]):focus-visible,
+.shared-grid-modal .ant-btn-outlined:not(.ant-btn-disabled):not([disabled]):active {
+  border-color: var(--ts-grid-accent);
+  color: var(--ts-grid-accent);
+}
+
+.shared-grid-modal .ant-input,
+.shared-grid-modal .ant-input-number,
+.shared-grid-modal .ant-input-number-group-addon,
+.shared-grid-modal .ant-select .ant-select-selector,
+.shared-grid-modal .ant-select-dropdown,
+.shared-grid-modal .ant-picker {
+  border-color: var(--ts-grid-border);
+  background: var(--ts-grid-surface);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-input::placeholder,
+.shared-grid-modal .ant-select-selection-placeholder,
+.shared-grid-modal .ant-select-arrow,
+.shared-grid-modal .ant-input-number-handler-wrap,
+.shared-grid-modal .ant-empty-description {
+  color: var(--ts-grid-text-muted);
+}
+
+.shared-grid-modal .ant-btn-primary,
+.shared-grid-modal .ant-switch.ant-switch-checked {
+  background: var(--ts-grid-accent);
+  border-color: var(--ts-grid-accent);
+  color: var(--ts-grid-on-accent);
+}
+
+.shared-grid-modal .ant-btn-primary:not(:disabled):hover,
+.shared-grid-modal .ant-btn-primary:not(:disabled):focus-visible {
+  background: var(--ts-grid-accent-strong);
+  border-color: var(--ts-grid-accent-strong);
+  color: var(--ts-grid-on-accent);
+}
+
+.shared-grid-modal .ant-alert-info {
+  border-color: rgb(var(--color-info, 62 114 168) / 0.24);
+  background: rgb(var(--color-info, 62 114 168) / 0.1);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-alert-info .ant-alert-icon {
+  color: var(--ts-grid-info);
+}
+
+.shared-grid-modal .ant-alert-warning,
+.tanstack-grid .ant-alert-warning {
+  border-color: rgb(var(--color-warning, 197 127 37) / 0.28);
+  background: rgb(var(--color-warning, 197 127 37) / 0.1);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-alert-warning .ant-alert-icon,
+.tanstack-grid .ant-alert-warning .ant-alert-icon {
+  color: var(--ts-grid-warning);
+}
+
+.shared-grid-modal .ant-alert-error,
+.tanstack-grid .ant-alert-error {
+  border-color: rgb(var(--color-danger, 185 62 53) / 0.28);
+  background: rgb(var(--color-danger, 185 62 53) / 0.1);
+  color: var(--ts-grid-text);
+}
+
+.shared-grid-modal .ant-alert-error .ant-alert-icon,
+.tanstack-grid .ant-alert-error .ant-alert-icon {
+  color: var(--ts-grid-danger);
+}
+
+.shared-grid-modal .ant-checkbox:hover .ant-checkbox-inner,
+.shared-grid-modal .ant-checkbox-wrapper:hover .ant-checkbox-inner,
+.shared-grid-modal .ant-checkbox:hover,
+.shared-grid-modal .ant-checkbox-wrapper:hover .ant-checkbox {
+  border-color: var(--ts-grid-accent-strong);
+}
+
+.shared-grid-modal .ant-checkbox-checked,
+.shared-grid-modal .ant-checkbox-checked .ant-checkbox-inner {
+  border-color: var(--ts-grid-accent);
+  background: var(--ts-grid-accent);
+}
+
+.shared-grid-modal .ant-checkbox-checked:hover,
+.shared-grid-modal .ant-checkbox-checked:hover .ant-checkbox-inner {
+  border-color: var(--ts-grid-accent-strong);
+  background: var(--ts-grid-accent-strong);
+}
+
+.shared-grid-modal .ant-checkbox-indeterminate .ant-checkbox-inner {
+  border-color: var(--ts-grid-accent);
+}
+
+.shared-grid-modal .ant-checkbox-indeterminate .ant-checkbox-inner::after {
+  background: var(--ts-grid-accent);
+}
+
+.shared-grid-modal .ant-switch:not(.ant-switch-checked):hover {
+  background: rgb(var(--color-border, 58 51 43) / 0.36);
+}
+
+.shared-grid-modal .ant-switch.ant-switch-checked:hover {
+  background: var(--ts-grid-accent-strong);
+}
+
+.tanstack-grid .ant-empty-description,
+.shared-grid-modal .ant-empty-description {
+  color: var(--ts-grid-text-muted);
+}
+
+:root[data-theme='dark'] .tanstack-grid .ant-empty-image,
+:root[data-theme='dark'] .tanstack-grid .ant-empty-image img,
+:root[data-theme='dark'] .tanstack-grid .ant-empty-image svg,
+:root[data-theme='dark'] .shared-grid-modal .ant-empty-image,
+:root[data-theme='dark'] .shared-grid-modal .ant-empty-image img,
+:root[data-theme='dark'] .shared-grid-modal .ant-empty-image svg {
+  filter: none;
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+
+:root[data-theme='dark'] .tanstack-grid .ant-empty-image svg *,
+:root[data-theme='dark'] .shared-grid-modal .ant-empty-image svg * {
+  filter: none;
+}
+
+.tanstack-grid .ant-spin,
+.tanstack-grid .ant-spin-text {
+  color: var(--ts-grid-accent);
+}
+
+.tanstack-grid .ant-spin .ant-spin-dot-item {
+  background-color: var(--ts-grid-accent);
 }
 
 .shared-grid-modal__description {
@@ -1039,10 +1345,10 @@
 .shared-grid-modal__error {
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid rgba(180, 35, 24, 0.2);
+  border: 1px solid rgb(var(--color-danger, 185 62 53) / 0.2);
   border-radius: 8px;
-  background: rgba(180, 35, 24, 0.08);
-  color: #b42318;
+  background: rgb(var(--color-danger, 185 62 53) / 0.08);
+  color: var(--ts-grid-danger);
   line-height: 1.4;
 }
 
@@ -1070,7 +1376,7 @@
   border-radius: 12px;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--ts-grid-surface-muted) 78%, #ffffff) 0%,
+    color-mix(in srgb, var(--ts-grid-surface-muted) 78%, var(--ts-grid-bg)) 0%,
     color-mix(in srgb, var(--ts-grid-surface) 88%, var(--ts-grid-accent-soft)) 100%
   );
   box-shadow: 0 8px 22px rgb(var(--color-shadow, 17 33 47) / 0.08);
@@ -1121,7 +1427,7 @@
   padding: 10px;
   border: 1px solid var(--ts-grid-border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.34);
+  background: rgb(var(--color-background-default, 255 253 248) / 0.34);
 }
 
 .shared-grid-template-editor__section-title {
