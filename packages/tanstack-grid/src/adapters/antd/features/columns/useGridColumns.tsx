@@ -57,6 +57,12 @@ export function useGridColumns({
         meta: {
           ...(column.meta ?? {}),
           editable: editingEnabled && Boolean(column.meta?.editable),
+          hasCustomCellPreview: Boolean(
+            column.meta?.renderPreview ||
+              slots.cellPreviewRenderers?.[getColumnId(column)] ||
+              slots.cellRenderers?.[getColumnId(column)] ||
+              slots.renderCellPreview,
+          ),
         },
         cell: (cellContext) => {
           const columnId = getColumnId(column);

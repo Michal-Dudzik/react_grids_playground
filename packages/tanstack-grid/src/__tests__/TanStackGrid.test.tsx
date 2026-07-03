@@ -43,7 +43,41 @@ describe('TanStackGrid package component', () => {
     );
 
     expect(markup).toContain('data-slot="status"');
+    expect(markup).toContain('tanstack-grid__presentation-cell--custom-display');
     expect(markup).toContain('Live');
+  });
+
+  it('marks custom presentation cells so replacement content can be centered', () => {
+    const presentationRules = [
+      {
+        id: 'live-status',
+        name: 'Live status',
+        enabled: true,
+        target: 'cell' as const,
+        field: 'status',
+        operator: 'equals',
+        value: 'Live',
+        decoration: 'success',
+        backgroundColor: '',
+        cellDisplay: 'pill',
+        textColor: '',
+      },
+    ];
+    const markup = renderToStaticMarkup(
+      <TanStackGrid
+        rows={rows}
+        columns={columns}
+        persistence={{
+          presentationRules: {
+            read: () => presentationRules,
+            write: () => {},
+          },
+        }}
+      />,
+    );
+
+    expect(markup).toContain('tanstack-grid__presentation-cell--custom-display');
+    expect(markup).toContain('tanstack-grid__replacement--pill');
   });
 
   it('hides the page size selector while auto page size is enabled', () => {

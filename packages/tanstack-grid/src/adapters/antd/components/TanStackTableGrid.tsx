@@ -301,6 +301,7 @@ export function TanStackTableGrid({
                     const rawCellValue = getCellValue(row, cell.column.id);
                     const renderedCellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
                     const cellExtraProps = getResolvedProps(getCellProps, { cell, row, table });
+                    const columnMeta = cell.column.columnDef.meta as { hasCustomCellPreview?: boolean } | undefined;
                     const {
                       className: cellClassName,
                       onContextMenu: onCellContextMenu,
@@ -313,6 +314,10 @@ export function TanStackTableGrid({
                         {...cellRestProps}
                         className={mergeClassNames(
                           getPresentationClassName('cell', cellPresentationRule),
+                          (cellPresentationRule && cellPresentationRule.cellDisplay !== 'value') ||
+                            columnMeta?.hasCustomCellPreview
+                            ? 'tanstack-grid__presentation-cell--custom-display'
+                            : '',
                           cellClassName,
                         )}
                         key={cell.id}
