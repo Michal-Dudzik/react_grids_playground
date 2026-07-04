@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AggregationScope } from '../adapters/antd/features/aggregation/TanStackTableSummaryPanel';
+import type { AggregationScope } from '../adapters/antd/features/aggregation/AggregationSummaryRow';
 import type { GridFeatureFlags, TanStackGridProps } from '../types';
 
 export interface UseGridStateParams<Row> {

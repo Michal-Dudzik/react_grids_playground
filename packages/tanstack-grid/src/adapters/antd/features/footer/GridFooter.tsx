@@ -54,11 +54,13 @@ function GridFooterAction({ action }: GridFooterActionProps) {
   return (
     <Tooltip title={action.title}>
       <Button
+        aria-label={action.title ?? action.label}
         className={action.className}
         disabled={action.disabled || action.loading}
         icon={hasIcon ? action.icon : null}
         loading={action.loading}
         onClick={action.onClick}
+        title={action.title ?? action.label}
         type={action.type ?? 'text'}
       >
         {hasIcon ? null : action.label}

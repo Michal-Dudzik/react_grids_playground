@@ -28,10 +28,13 @@ export const rowDensityConfigs = {
 
 export const defaultAggregationLabels = {
   aggregateColumn: 'Aggregate column',
+  all: 'All pages',
   average: 'Average',
-  filtered: 'All filtered rows',
+  count: 'Count',
+  details: 'Summary details',
   max: 'Max',
   min: 'Min',
+  noAggregatableColumns: 'No columns available for summaries',
   page: 'Current page',
   scope: 'Aggregation scope',
   summary: 'Aggregates',

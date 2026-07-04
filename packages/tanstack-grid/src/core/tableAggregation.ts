@@ -1,7 +1,7 @@
 import { defaultAggregationOperations } from './tableConfig';
 
 export type AggregationRowData = Record<string, unknown>;
-export type AggregationOperation = 'sum' | 'average' | 'avg' | 'min' | 'max' | (string & {});
+export type AggregationOperation = 'sum' | 'average' | 'avg' | 'min' | 'max' | 'count' | (string & {});
 
 export interface AggregationColumnDef {
   header?: unknown;
@@ -19,6 +19,8 @@ export interface AggregationColumn<Row extends AggregationRowData = AggregationR
 export interface AggregationColumnConfig {
   id: string;
   label?: string;
+  operations?: AggregationOperation[];
+  formatValue?: (value: unknown, context: AggregationFormatContext) => string;
 }
 
 export interface AggregationColumnOption {
@@ -38,6 +40,7 @@ export interface AggregationFormatContext {
 
 export interface CustomAggregate<Row extends AggregationRowData = AggregationRowData> {
   calculate?: (values: number[], context: AggregationContext<Row>) => unknown;
+  columnId?: string;
   format?: (value: unknown, context: AggregationContext<Row>) => string;
   key?: string;
   label?: string;
@@ -70,7 +73,24 @@ export interface GetColumnAggregatesOptions<Row extends AggregationRowData = Agg
 export interface AggregationItem {
   key: string | undefined;
   label: string | undefined;
+  rawValue?: unknown;
   value: string;
+}
+
+export interface AggregationColumnSummary {
+  columnId: string;
+  key: string;
+  label: string;
+  values: AggregationItem[];
+}
+
+export interface GetColumnAggregationSummariesOptions<Row extends AggregationRowData = AggregationRowData> {
+  aggregationConfig?: AggregationConfig<Row>;
+  columnDetectionRows?: Array<AggregationTableRow<Row>>;
+  columns: Array<AggregationColumn<Row>>;
+  labels: Record<string, string>;
+  locale?: string;
+  tableRows: Array<AggregationTableRow<Row>>;
 }
 
 function isPresent<Value>(value: Value | null | undefined): value is Value {
@@ -78,7 +98,13 @@ function isPresent<Value>(value: Value | null | undefined): value is Value {
 }
 
 export function parseCurrency(value: unknown): number | null {
-  const numericValue: number = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
+  const cleaned: string = String(value ?? '').replace(/[^0-9.-]/g, '');
+
+  if (!cleaned || !/\d/.test(cleaned)) {
+    return null;
+  }
+
+  const numericValue: number = Number(cleaned);
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
@@ -190,6 +216,37 @@ export function getAggregationOperations<Row extends AggregationRowData = Aggreg
     : defaultAggregationOperations;
 }
 
+function normalizeAggregationOperation(operation: AggregationOperation): AggregationOperation {
+  return operation === 'avg' ? 'average' : operation;
+}
+
+function getAggregationColumnConfig<Row extends AggregationRowData = AggregationRowData>(
+  aggregationConfig: AggregationConfig<Row>,
+  columnId: string,
+): AggregationColumnConfig | undefined {
+  if (!Array.isArray(aggregationConfig.columns)) {
+    return undefined;
+  }
+
+  const columnConfig = aggregationConfig.columns.find((candidate: string | AggregationColumnConfig): boolean => {
+    const candidateId: string = typeof candidate === 'string' ? candidate : candidate.id;
+    return candidateId === columnId;
+  });
+
+  return typeof columnConfig === 'object' ? columnConfig : undefined;
+}
+
+function getOperationsForColumn<Row extends AggregationRowData = AggregationRowData>(
+  aggregationConfig: AggregationConfig<Row>,
+  columnId: string,
+): AggregationOperation[] {
+  const columnConfig = getAggregationColumnConfig(aggregationConfig, columnId);
+
+  return Array.isArray(columnConfig?.operations) && columnConfig.operations.length > 0
+    ? columnConfig.operations
+    : getAggregationOperations(aggregationConfig);
+}
+
 export function formatAggregateValue<Row extends AggregationRowData = AggregationRowData>({
   aggregationConfig = {},
   columnId,
@@ -197,6 +254,12 @@ export function formatAggregateValue<Row extends AggregationRowData = Aggregatio
   operation,
   value,
 }: FormatAggregateValueOptions<Row>): string {
+  const columnConfig = getAggregationColumnConfig(aggregationConfig, columnId);
+
+  if (typeof columnConfig?.formatValue === 'function') {
+    return columnConfig.formatValue(value, { columnId, operation });
+  }
+
   if (typeof aggregationConfig.formatValue === 'function') {
     return aggregationConfig.formatValue(value, { columnId, operation });
   }
@@ -223,14 +286,15 @@ export function getColumnAggregates<Row extends AggregationRowData = Aggregation
   const operationValues: Partial<Record<AggregationOperation, number>> = {
     average,
     avg: average,
+    count: values.length,
     max: values.length > 0 ? Math.max(...values) : 0,
     min: values.length > 0 ? Math.min(...values) : 0,
     sum: total,
   };
 
-  const builtInAggregates: AggregationItem[] = getAggregationOperations(aggregationConfig)
+  const builtInAggregates: AggregationItem[] = getOperationsForColumn(aggregationConfig, columnId)
     .map((operation: AggregationOperation): AggregationItem | null => {
-      const normalizedOperation: AggregationOperation = operation === 'avg' ? 'average' : operation;
+      const normalizedOperation: AggregationOperation = normalizeAggregationOperation(operation);
       const value: number | undefined = operationValues[operation];
 
       if (value === undefined) {
@@ -240,6 +304,7 @@ export function getColumnAggregates<Row extends AggregationRowData = Aggregation
       return {
         key: normalizedOperation,
         label: labels[normalizedOperation] ?? labels[operation] ?? operation,
+        rawValue: value,
         value: formatAggregateValue({
           aggregationConfig,
           columnId,
@@ -258,11 +323,16 @@ export function getColumnAggregates<Row extends AggregationRowData = Aggregation
             return null;
           }
 
+          if (aggregate.columnId && aggregate.columnId !== columnId) {
+            return null;
+          }
+
           const value: unknown = aggregate.calculate(values, { columnId, rows: tableRows });
 
           return {
             key: aggregate.key ?? aggregate.label,
             label: aggregate.label ?? aggregate.key,
+            rawValue: value,
             value:
               typeof aggregate.format === 'function'
                 ? aggregate.format(value, { columnId, rows: tableRows })
@@ -279,4 +349,38 @@ export function getColumnAggregates<Row extends AggregationRowData = Aggregation
     : [];
 
   return [...builtInAggregates, ...customAggregates];
+}
+
+export function getColumnAggregationSummaries<Row extends AggregationRowData = AggregationRowData>({
+  aggregationConfig = {},
+  columnDetectionRows,
+  columns,
+  labels,
+  locale = 'en-US',
+  tableRows,
+}: GetColumnAggregationSummariesOptions<Row>): AggregationColumnSummary[] {
+  const aggregationColumnOptions = getAggregationColumnOptions(columns, columnDetectionRows ?? tableRows, aggregationConfig);
+
+  return aggregationColumnOptions
+    .map((option: AggregationColumnOption): AggregationColumnSummary | null => {
+      const values = getColumnAggregates({
+        aggregationConfig,
+        columnId: option.key,
+        labels,
+        locale,
+        tableRows,
+      });
+
+      if (values.length === 0) {
+        return null;
+      }
+
+      return {
+        columnId: option.key,
+        key: option.key,
+        label: option.label,
+        values,
+      };
+    })
+    .filter(isPresent);
 }

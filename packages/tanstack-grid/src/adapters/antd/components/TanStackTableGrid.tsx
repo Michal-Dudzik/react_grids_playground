@@ -65,6 +65,7 @@ interface TanStackTableGridProps {
   showColumnDividers: boolean;
   showFilters: boolean;
   showRowDividers: boolean;
+  summaryRow?: ReactNode;
   table: Table<AnyData>;
   tableProps?: TableHTMLAttributes<HTMLTableElement>;
   tableWrapRef: RefObject<HTMLDivElement | null>;
@@ -112,6 +113,7 @@ export function TanStackTableGrid({
   showColumnDividers,
   showFilters,
   showRowDividers,
+  summaryRow,
   table,
   tableProps = {},
   tableWrapRef,
@@ -358,6 +360,7 @@ export function TanStackTableGrid({
             </tr>
           )}
         </tbody>
+        {summaryRow}
       </table>
     </div>
   );

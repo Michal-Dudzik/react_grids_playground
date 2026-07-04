@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TanStackGrid, TanStackGridCompat, createGridMessageResolver } from '../index';
 
@@ -93,5 +93,22 @@ describe('TanStackGridCompat', () => {
     expect(markup).toContain('data-template="amount"');
     expect(markup).toContain('cell-locked');
     expect(markup).toContain('Custom footer');
+  });
+
+  it('maps Syncfusion-style aggregation config to per-column summary operations', () => {
+    render(
+      <TanStackGridCompat
+        autoPageSize={false}
+        columns={columns}
+        data={rows}
+        aggregationConfig={[{ field: 'amount', types: ['sum', 'avg', 'count'] }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle('Show summary'));
+
+    expect(screen.getByText('Sum')).toBeInTheDocument();
+    expect(screen.getByText('Average')).toBeInTheDocument();
+    expect(screen.getByText('Count')).toBeInTheDocument();
   });
 });

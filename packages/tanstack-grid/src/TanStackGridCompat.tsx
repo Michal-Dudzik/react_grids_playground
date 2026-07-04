@@ -25,7 +25,6 @@ function normalizeAggregationConfig(aggregationConfig: unknown) {
   }
 
   const columns = [];
-  const operations = new Set<string>();
   const customAggregates = [];
 
   aggregationConfig.forEach((item) => {
@@ -39,30 +38,32 @@ function normalizeAggregationConfig(aggregationConfig: unknown) {
       return;
     }
 
+    const sourceTypes = Array.isArray(item.types) && item.types.length > 0 ? item.types : [item.type ?? 'sum'];
+    const operations = sourceTypes.map((type) => {
+      const normalizedType = String(type).toLowerCase();
+      return normalizedType === 'avg' ? 'average' : normalizedType;
+    });
+
     columns.push({
       id: field,
       label: typeof item.label === 'string' ? item.label : field,
+      operations,
     });
 
-    const type = String(item.type ?? 'sum').toLowerCase();
-
-    if (type === 'count') {
+    if (typeof item.customFn === 'function') {
+      const customFn = item.customFn;
       customAggregates.push({
-        calculate: (_values, context) => context?.rows?.length ?? 0,
-        format: (value) => String(value ?? 0),
-        key: `${field}-count`,
-        label: typeof item.label === 'string' ? item.label : 'Count',
+        calculate: (_values, context) => (context?.columnId === field ? customFn(context.rows, field) : null),
+        columnId: field,
+        key: `${field}-custom`,
+        label: typeof item.label === 'string' ? item.label : 'Custom',
       });
-      return;
     }
-
-    operations.add(type === 'avg' ? 'average' : type);
   });
 
   return {
     columns,
     customAggregates,
-    operations: operations.size > 0 ? [...operations] : undefined,
   };
 }
 

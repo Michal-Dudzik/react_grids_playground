@@ -11,7 +11,7 @@ import {
   getMatchingPresentationRule,
   normalizePresentationRules,
 } from '../core/tablePresentationRules';
-import { getColumnAggregates, getNumericAggregateValues } from '../core/tableAggregation';
+import { getColumnAggregates, getColumnAggregationSummaries, getNumericAggregateValues } from '../core/tableAggregation';
 import { buildCsvContent, buildPrintableMarkup, buildXlsxContent, prepareContextMenuItems } from '../core/tableUtils';
 
 const rows = [
@@ -94,6 +94,52 @@ describe('core filters, presentation and aggregation', () => {
       expect.objectContaining({ key: 'average' }),
       expect.objectContaining({ key: 'min' }),
       expect.objectContaining({ key: 'max' }),
+    ]);
+  });
+
+  it('calculates configured summaries for multiple columns', () => {
+    const summaryRows = [
+      ...rows,
+      {
+        original: { id: 'row-3', amount: '$500', score: 10 },
+        getValue(key: string) {
+          return this.original[key as keyof typeof this.original];
+        },
+      },
+    ];
+    const summaries = getColumnAggregationSummaries({
+      aggregationConfig: {
+        columns: [
+          { id: 'amount', operations: ['sum', 'count'] },
+          {
+            formatValue: (value, context) => `${context.operation}:${value}`,
+            id: 'score',
+            label: 'Quality score',
+            operations: ['average'],
+          },
+        ],
+      },
+      columns: [
+        { id: 'amount', columnDef: { header: 'Amount' } },
+        { id: 'score', columnDef: { header: 'Score' } },
+      ],
+      labels: { average: 'Average', count: 'Count', max: 'Max', min: 'Min', sum: 'Sum' },
+      tableRows: summaryRows as any,
+    });
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        columnId: 'amount',
+        values: [
+          expect.objectContaining({ key: 'sum', value: '2,500' }),
+          expect.objectContaining({ key: 'count', value: '3' }),
+        ],
+      }),
+      expect.objectContaining({
+        columnId: 'score',
+        label: 'Quality score',
+        values: [expect.objectContaining({ key: 'average', value: 'average:10' })],
+      }),
     ]);
   });
 });

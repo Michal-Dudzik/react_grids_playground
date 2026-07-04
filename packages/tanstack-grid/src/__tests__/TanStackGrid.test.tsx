@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TanStackGrid } from '../index';
 
@@ -97,5 +97,35 @@ describe('TanStackGrid package component', () => {
 
     expect(() => render(<TanStackGrid rows={rows} columns={columns} />)).not.toThrow();
     expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('Maximum update depth exceeded'));
+  });
+
+  it('renders useful column summaries instead of diagnostic summary items', () => {
+    render(
+      <TanStackGrid
+        aggregationConfig={{ columns: [{ id: 'amount', operations: ['sum'] }] }}
+        autoPageSize={false}
+        columns={columns}
+        pageSize={1}
+        rows={rows}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle('Show summary'));
+
+    expect(screen.getByText('Summaries')).toBeInTheDocument();
+    expect(screen.queryByText('Visible rows')).not.toBeInTheDocument();
+    expect(screen.queryByText('Matching rows')).not.toBeInTheDocument();
+    expect(screen.queryByText('Selected rows')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Amount').length).toBeGreaterThan(1);
+    expect(screen.getByText('1,200')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('All pages'));
+
+    expect(screen.getByText('2,000')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Summary details'));
+
+    expect(screen.getAllByText('Summary details').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('All pages').length).toBeGreaterThan(0);
   });
 });

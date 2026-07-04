@@ -1,8 +1,13 @@
 import { PrinterOutlined } from '@ant-design/icons';
 import { Button, Dropdown } from 'antd';
-import { forwardRef, useCallback, useEffect, type ComponentType, type ReactNode } from 'react';
+import { forwardRef, useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import './styles.css';
-import { TanStackTableSummaryPanel } from './adapters/antd/features/aggregation/TanStackTableSummaryPanel';
+import { AggregationDetailsModal } from './adapters/antd/features/aggregation/AggregationDetailsModal';
+import {
+  AggregationSummaryRow,
+  AggregationSummaryToolbar,
+  type AggregationSummaryLabels,
+} from './adapters/antd/features/aggregation/AggregationSummaryRow';
 import { GridColumnsModal } from './adapters/antd/features/columns/GridColumnsModal';
 import { useGridColumnSettings } from './adapters/antd/features/columns/useGridColumnSettings';
 import { useGridContextMenu } from './adapters/antd/features/contextMenu/useGridContextMenu';
@@ -127,6 +132,21 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   const ModalComponent = effectiveComponents.Modal;
   const Spinner = effectiveComponents.Spinner;
   const getMessage = createGridMessageResolver({ formatMessage: effectiveFormatMessage, labels: effectiveLabels });
+  const [aggregationDetailsOpen, setAggregationDetailsOpen] = useState(false);
+  const aggregationLabels: AggregationSummaryLabels & Record<string, string> = {
+    aggregateColumn: getMessage('aggregateColumn'),
+    all: getMessage('aggregationScopeAll'),
+    average: getMessage('average'),
+    count: getMessage('count'),
+    details: getMessage('summaryDetails'),
+    max: getMessage('max'),
+    min: getMessage('min'),
+    noAggregatableColumns: getMessage('noAggregatableColumns'),
+    page: getMessage('aggregationScopePage'),
+    scope: getMessage('scope'),
+    summary: getMessage('summary'),
+    sum: getMessage('sum'),
+  };
 
   const gridState = useGridState({
     autoPageSize: controlledAutoPageSize,
@@ -175,6 +195,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   const computations = useGridComputations({
     aggregationColumnId: gridState.aggregationColumnId,
     aggregationConfig,
+    aggregationLabels,
     aggregationScope: gridState.aggregationScope,
     columnFilters: tableConfig.columnFilters,
     locale: effectiveLocale,
@@ -222,7 +243,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     setPagination: gridState.setPagination,
   });
 
-  const selectedRowsReport = useSelectionReport({
+  useSelectionReport({
     onSelectionChange,
     rowSelection: gridState.rowSelection,
     selectionMode: gridState.selectionMode,
@@ -291,7 +312,6 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   });
 
   const {
-    activePresentationRules,
     addPresentationRule,
     columnOptions,
     deletePresentationRule,
@@ -375,20 +395,6 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     syncColumnWidthsFromDom,
   });
 
-  const summaryItems = [
-    { label: getMessage('visibleRows'), value: computations.visibleRows.length },
-    { label: getMessage('matchingRows'), value: computations.matchingRows.length },
-    { label: getMessage('selectedRows'), value: computations.selectedRows.length },
-    { label: getMessage('selectionCallback'), value: selectedRowsReport.length > 0 ? selectedRowsReport.join(', ') : getMessage('none') },
-    { label: getMessage('activeRow'), value: gridState.activeRow ? getRowId(gridState.activeRow) : getMessage('none') },
-    { label: getMessage('lastDoubleClick'), value: gridState.lastDoubleClickedRow ? getRowId(gridState.lastDoubleClickedRow) : getMessage('none') },
-    { label: getMessage('search'), value: tableConfig.globalFilter || getMessage('none') },
-    { label: getMessage('columnFilters'), value: computations.activeColumnFilters || getMessage('none') },
-    { label: getMessage('presentationRules'), value: activePresentationRules || getMessage('none') },
-    { label: getMessage('density'), value: computations.rowDensityConfig.label },
-    { label: getMessage('autoPageSize'), value: gridState.autoPageSize ? `${gridState.pagination.pageSize} ${getMessage('rowsSuffix')}` : getMessage('off') },
-  ];
-
   const footerButtons = buildGridFooterButtons({
     filtering: tableConfig.showFilters,
     onColumnsSettings: openColumnSettingsModal,
@@ -444,15 +450,12 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         ) : null}
 
         {gridState.showSummary ? (
-          <TanStackTableSummaryPanel
-            aggregateItems={computations.aggregateItems}
-            aggregationColumnOptions={computations.aggregationColumnOptions}
-            aggregationLabels={computations.aggregationLabels}
+          <AggregationSummaryToolbar
+            aggregationLabels={aggregationLabels}
             aggregationScope={gridState.aggregationScope}
-            onAggregationColumnChange={gridState.setAggregationColumnId}
-            onAggregationScopeChange={gridState.setAggregationScope}
-            selectedAggregationColumnId={computations.effectiveAggregationColumnId}
-            summaryItems={summaryItems}
+            hasSummaries={computations.aggregationSummaries.length > 0}
+            onDetailsClick={() => setAggregationDetailsOpen(true)}
+            onScopeChange={gridState.setAggregationScope}
           />
         ) : null}
 
@@ -476,6 +479,16 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
           showColumnDividers={showColumnDividers}
           showFilters={tableConfig.showFilters}
           showRowDividers={showRowDividers}
+          summaryRow={
+            gridState.showSummary ? (
+              <AggregationSummaryRow
+                aggregationLabels={aggregationLabels}
+                aggregationScope={gridState.aggregationScope}
+                summaries={computations.aggregationSummaries}
+                visibleColumns={tableConfig.table.getVisibleLeafColumns()}
+              />
+            ) : null
+          }
           table={tableConfig.table}
           tableProps={tableProps}
           tableWrapRef={gridState.tableWrapRef}
@@ -541,6 +554,15 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
         rules={tableConfig.presentationRules}
         getMessage={getMessage}
         ModalComponent={ModalComponent}
+      />
+
+      <AggregationDetailsModal
+        aggregationLabels={aggregationLabels}
+        aggregationScope={gridState.aggregationScope}
+        ModalComponent={ModalComponent}
+        onClose={() => setAggregationDetailsOpen(false)}
+        open={aggregationDetailsOpen}
+        summaries={computations.aggregationSummaries}
       />
 
       <ContextMenu
