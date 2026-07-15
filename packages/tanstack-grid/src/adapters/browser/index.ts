@@ -3,6 +3,7 @@ import {
   buildPrintableMarkup,
   buildXlsxContent,
 } from '../../core/tableUtils';
+import type { GridColumnPreferencesContext } from '../../types';
 
 export interface GridStateAdapter<TState = unknown> {
   read: () => TState | undefined;
@@ -54,10 +55,11 @@ export function createLocalStorageGridStateAdapter<TState = unknown>({
 }
 
 export interface HttpColumnPreferencesAdapterOptions {
-  endpoint: string | ((context: Record<string, unknown>) => string);
+  endpoint: string | ((context: GridColumnPreferencesContext) => string);
   request?: typeof fetch;
-  headers?: HeadersInit | ((context: Record<string, unknown>) => HeadersInit);
+  headers?: HeadersInit | ((context: GridColumnPreferencesContext) => HeadersInit);
   method?: string;
+  resetMethod?: string;
 }
 
 export function createHttpColumnPreferencesAdapter({
@@ -65,19 +67,21 @@ export function createHttpColumnPreferencesAdapter({
   headers,
   method = 'PUT',
   request = fetch,
+  resetMethod = 'DELETE',
 }: HttpColumnPreferencesAdapterOptions) {
-  const resolveEndpoint = (context: Record<string, unknown>) =>
+  const resolveEndpoint = (context: GridColumnPreferencesContext) =>
     typeof endpoint === 'function' ? endpoint(context) : endpoint;
-  const resolveHeaders = (context: Record<string, unknown>) =>
+  const resolveHeaders = (context: GridColumnPreferencesContext) =>
     typeof headers === 'function' ? headers(context) : headers;
 
   return {
-    async load(context: Record<string, unknown> = {}) {
+    async load(context: GridColumnPreferencesContext = {}) {
       const response = await request(resolveEndpoint(context), {
         headers: {
           Accept: 'application/json',
           ...(resolveHeaders(context) ?? {}),
         },
+        signal: context.signal,
       });
 
       if (!response.ok) {
@@ -86,7 +90,21 @@ export function createHttpColumnPreferencesAdapter({
 
       return response.json();
     },
-    async save({ payload, ...context }: { payload: unknown } & Record<string, unknown>) {
+    async reset(context: GridColumnPreferencesContext = {}) {
+      const response = await request(resolveEndpoint(context), {
+        headers: resolveHeaders(context),
+        method: resetMethod,
+        signal: context.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to reset column preferences (${response.status})`);
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      return contentType.includes('application/json') ? response.json() : { success: true };
+    },
+    async save({ payload, ...context }: GridColumnPreferencesContext & { payload: unknown }) {
       const response = await request(resolveEndpoint(context), {
         body: JSON.stringify(payload),
         headers: {
@@ -94,6 +112,7 @@ export function createHttpColumnPreferencesAdapter({
           ...(resolveHeaders(context) ?? {}),
         },
         method,
+        signal: context.signal,
       });
 
       if (!response.ok) {

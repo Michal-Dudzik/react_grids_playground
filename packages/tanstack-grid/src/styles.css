@@ -978,6 +978,30 @@ body,
   opacity: 0.55;
 }
 
+.tanstack-grid__context-menu-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--ts-grid-text-muted);
+}
+
+.tanstack-grid__boolean-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ts-grid-success);
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.tanstack-grid__number-value {
+  display: block;
+  width: 100%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .tanstack-grid__context-menu-meta {
   margin-left: auto;
   color: var(--ts-grid-accent);

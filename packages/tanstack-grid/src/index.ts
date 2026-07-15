@@ -17,11 +17,22 @@ export {
   GridSpinner,
 } from './components/GridComponents';
 export {
+  createBooleanRenderer,
+  createDateRenderer,
+  createNumberRenderer,
+} from './renderers/GridRenderers';
+export type {
+  BooleanRendererOptions,
+  DateRendererOptions,
+  NumberRendererOptions,
+} from './renderers/GridRenderers';
+export {
   buildGridThemeStyle,
   GridProvider,
   mergeGridComponents,
   useGridConfig,
 } from './config/GridProvider';
+export type { GridProviderProps } from './config/GridProvider';
 export {
   copyText,
   createHttpColumnPreferencesAdapter,
@@ -34,10 +45,15 @@ export {
 } from './adapters/browser';
 export type {
   GridCellPreviewContext,
+  GridCellRenderer,
   GridClipboardAdapter,
   GridColumnDef,
   GridColumnPreferencesAdapter,
   GridComponents,
+  GridContextMenuConfig,
+  GridContextMenuItem,
+  GridContextMenuItems,
+  GridContextMenuState,
   GridDefaults,
   GridEmptyStateProps,
   GridErrorPanelProps,
@@ -47,10 +63,12 @@ export type {
   GridFooterConfig,
   GridFormatMessage,
   GridLabels,
+  GridInstanceId,
   GridLoadingOverlayProps,
   GridModalProps,
   GridPresentationRule,
   GridProviderValue,
+  GridColumnPreferencesContext,
   GridSpinnerProps,
   GridPrintAdapter,
   GridSlots,

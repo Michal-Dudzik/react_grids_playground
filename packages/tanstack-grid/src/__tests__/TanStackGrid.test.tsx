@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TanStackGrid } from '../index';
 
@@ -97,6 +97,53 @@ describe('TanStackGrid package component', () => {
 
     expect(() => render(<TanStackGrid rows={rows} columns={columns} />)).not.toThrow();
     expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('Maximum update depth exceeded'));
+  });
+
+  it('keeps selection distinct for rows without an id field', async () => {
+    const onSelectionChange = vi.fn();
+
+    render(
+      <TanStackGrid
+        columns={[{ accessorKey: 'owner', header: 'Owner' }]}
+        onSelectionChange={onSelectionChange}
+        rows={[{ owner: 'Ava' }, { owner: 'Mina' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('Select row 1'));
+    await waitFor(() => expect(screen.getByLabelText('Select row 1')).toBeChecked());
+    fireEvent.click(screen.getByLabelText('Select row 2'));
+
+    await waitFor(() => {
+      expect(onSelectionChange).toHaveBeenLastCalledWith(
+        [{ owner: 'Ava' }, { owner: 'Mina' }],
+        expect.objectContaining({ ids: ['0', '1'] }),
+      );
+    });
+  });
+
+  it('passes row context to native context menu actions', () => {
+    const onEdit = vi.fn();
+
+    render(
+      <TanStackGrid
+        columns={columns}
+        contextMenuConfig={{
+          cellItems: () => [{ key: 'edit', label: 'Edit row', onSelect: onEdit }],
+        }}
+        rows={rows}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText('Ava').closest('td')!);
+    fireEvent.click(screen.getByText('Edit row'));
+
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'owner',
+      row: rows[0],
+      rowId: 'row-1',
+      target: 'cell',
+    }));
   });
 
   it('renders useful column summaries instead of diagnostic summary items', () => {

@@ -51,7 +51,9 @@ export function useGridColumnSettings({
   currentDefaultColumnSizing,
   dataColumns,
   gridId,
+  onResetColumnPreferences,
   onSaveColumnPreferences,
+  reloadColumns,
   setColumnOrder,
   setColumnSettingsDraft,
   setColumnSizing,
@@ -186,8 +188,29 @@ export function useGridColumnSettings({
     );
   }
 
-  function resetColumnSettingsDraft() {
+  async function resetColumnSettingsDraft() {
     setColumnSettingsError('');
+
+    if (typeof onResetColumnPreferences === 'function') {
+      if (columnSettingsSaving) return;
+
+      setColumnSettingsSaving(true);
+
+      try {
+        await onResetColumnPreferences({ appId, gridId });
+        resetColumnSettings();
+        reloadColumns?.();
+        setColumnsModalOpen(false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setColumnSettingsError(message || 'Failed to reset column preferences.');
+      } finally {
+        setColumnSettingsSaving(false);
+      }
+
+      return;
+    }
+
     setColumnSettingsDraft(buildColumnSettingsState({}, dataColumns));
   }
 

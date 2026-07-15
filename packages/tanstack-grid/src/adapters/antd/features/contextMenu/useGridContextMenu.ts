@@ -88,6 +88,7 @@ export function useGridContextMenu({
       columnId: cell.column.id,
       displayValue: getColumnDisplayText(cell.column, getCellValue(row, cell.column.id), 'export'),
       label: `${row.original?.id ?? row.id ?? String(row.index ?? '<row>')} · ${getColumnLabel(cell.column)}`,
+      row: row.original,
       rowId: row.id,
       target: 'cell',
       value: getCellValue(row, cell.column.id),
@@ -178,13 +179,14 @@ export function useGridContextMenu({
       return;
     }
 
+    const currentMenuState = contextMenu;
     closeContextMenu();
     try {
-      item.onSelect?.();
+      item.onSelect?.(currentMenuState);
     } catch (err) {
       console.error('[ContextMenu] onSelect threw synchronously:', err);
     }
-  }, [closeContextMenu]);
+  }, [closeContextMenu, contextMenu]);
 
   const contextMenuItems = useMemo(() => {
     if (!contextMenu) return [];

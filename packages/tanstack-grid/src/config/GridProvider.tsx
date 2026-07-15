@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { defaultGridComponents } from '../components/GridComponents';
-import type { GridComponents, GridProviderValue, GridThemeTokens } from '../types';
+import type { GridColumnPreferencesAdapter, GridComponents, GridProviderValue, GridThemeTokens } from '../types';
 
 const GridConfigContext = createContext<GridProviderValue>({});
 
@@ -38,6 +38,30 @@ export function mergeGridComponents(
   };
 }
 
+export function mergeColumnPreferences(
+  providerPreferences?: GridColumnPreferencesAdapter,
+  overridePreferences?: GridColumnPreferencesAdapter,
+): GridColumnPreferencesAdapter {
+  const provider = providerPreferences ?? {};
+  const overrides = overridePreferences ?? {};
+  const merged: GridColumnPreferencesAdapter = {};
+  const load = overrides.load ?? provider.load;
+  const save = overrides.save ?? provider.save;
+  const reset = overrides.reset ?? provider.reset;
+
+  if (typeof load === 'function') {
+    merged.load = load;
+  }
+  if (typeof save === 'function') {
+    merged.save = save;
+  }
+  if (typeof reset === 'function') {
+    merged.reset = reset;
+  }
+
+  return merged;
+}
+
 export function buildGridThemeStyle(themeTokens?: GridThemeTokens): CSSProperties | undefined {
   if (!themeTokens) {
     return undefined;
@@ -64,6 +88,7 @@ export function GridProvider({ children, ...value }: GridProviderProps) {
   const contextValue = useMemo(
     () => ({
       ...value,
+      columnPreferences: value.columnPreferences,
       components: {
         ...(value.components ?? {}),
       },
@@ -77,7 +102,15 @@ export function GridProvider({ children, ...value }: GridProviderProps) {
         ...(value.themeTokens ?? {}),
       },
     }),
-    [value.components, value.defaults, value.formatMessage, value.labels, value.locale, value.themeTokens],
+    [
+      value.columnPreferences,
+      value.components,
+      value.defaults,
+      value.formatMessage,
+      value.labels,
+      value.locale,
+      value.themeTokens,
+    ],
   );
 
   return <GridConfigContext.Provider value={contextValue}>{children}</GridConfigContext.Provider>;

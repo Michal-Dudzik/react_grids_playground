@@ -34,6 +34,11 @@ describe('browser adapters', () => {
     expect(request).toHaveBeenCalledWith('/columns/orders', expect.objectContaining({
       method: 'PUT',
     }));
+
+    await expect(adapter.reset({ gridId: 'orders' })).resolves.toEqual({ ok: true });
+    expect(request).toHaveBeenLastCalledWith('/columns/orders', expect.objectContaining({
+      method: 'DELETE',
+    }));
   });
 
   it('warns when using the legacy copy fallback', () => {

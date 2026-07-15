@@ -85,6 +85,7 @@ export function useGridState<Row>({
   const editingEnabled = controlledState.editingEnabled ?? controlledEditingEnabled ?? editingEnabledState;
   const loadColumns =
     columnPreferences.load ?? (typeof fetchColumns === 'function' ? fetchColumns : undefined);
+  const resetColumnPreferences = columnPreferences.reset;
   const saveColumnPreferences =
     columnPreferences.save ??
     onSaveColumnPreferences ??
@@ -129,7 +130,9 @@ export function useGridState<Row>({
     pagination,
     rowDensity,
     rowSelection,
+    resetColumnPreferences,
     saveColumnPreferences,
+    shouldFetchColumns: fetchColumns === true || typeof fetchColumns === 'function',
     selectionMode,
     setActiveRow,
     setAggregationColumnId,

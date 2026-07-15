@@ -15,6 +15,7 @@ import {
   buildDefaultColumnOrder,
   buildDefaultColumnSizing,
   buildTanStackDataColumns,
+  resolveGridRowId,
 } from '../core/tableColumns';
 import { MIN_COLUMN_WIDTH } from '../core/tableConfig';
 import type { GridColumnDef, GridSlots, TanStackGridProps } from '../types';
@@ -27,13 +28,16 @@ import {
 } from './tableHooks';
 
 export interface UseGridTableConfigurationParams<Row extends RowData> {
+  appId?: TanStackGridProps<Row>['appId'];
   columnRequest?: typeof fetch;
   defaultColumns: GridColumnDef<Row>[];
   editingEnabled: boolean;
-  getRowId: (row: Row) => string;
+  getRowId?: (row: Row, index: number) => string;
+  gridId?: TanStackGridProps<Row>['gridId'];
   loadColumns?: TanStackGridProps<Row>['columnPreferences']['load'];
   localColumns: GridColumnDef<Row>[];
   locale: string;
+  rowIdField?: keyof Row | string;
   pagination: { pageIndex: number; pageSize: number };
   persistence?: TanStackGridProps<Row>['persistence'];
   rowSelection: Record<string, boolean>;
@@ -44,21 +48,25 @@ export interface UseGridTableConfigurationParams<Row extends RowData> {
   setTableData: Dispatch<SetStateAction<Row[]>>;
   slots?: GridSlots<Row>;
   sorting: SortingState;
+  shouldFetchColumns?: boolean;
   tableData: Row[];
   transformColumnsFn?: (columns: ColumnDef<Row>[]) => ColumnDef<Row>[];
 }
 
 export function useGridTableConfiguration<Row extends RowData>({
+  appId,
   columnRequest = fetch,
   defaultColumns,
   editingEnabled,
   getRowId,
+  gridId,
   loadColumns,
   localColumns,
   locale,
   pagination,
   persistence = {},
   rowSelection,
+  rowIdField,
   selectionMode,
   setPagination,
   setRowSelection,
@@ -66,13 +74,16 @@ export function useGridTableConfiguration<Row extends RowData>({
   setTableData,
   slots = {},
   sorting,
+  shouldFetchColumns,
   tableData,
   transformColumnsFn,
 }: UseGridTableConfigurationParams<Row>) {
-  const { apiColumnsError, apiColumnsLoading, sourceColumns } = useApiColumns({
+  const { apiColumnsError, apiColumnsLoading, reloadColumns, sourceColumns } = useApiColumns({
+    appId,
     columnRequest,
     defaultColumns,
-    fetchColumns: Boolean(loadColumns),
+    fetchColumns: shouldFetchColumns,
+    gridId,
     loadColumns,
     localColumns,
     locale,
@@ -84,6 +95,10 @@ export function useGridTableConfiguration<Row extends RowData>({
   );
   const currentDefaultColumnOrder = useMemo(() => buildDefaultColumnOrder(dataColumns), [dataColumns]);
   const currentDefaultColumnSizing = useMemo(() => buildDefaultColumnSizing(dataColumns), [dataColumns]);
+  const resolveRowId = useMemo(
+    () => getRowId ?? ((row: Row, index: number) => resolveGridRowId(row, index, dataColumns, rowIdField)),
+    [dataColumns, getRowId, rowIdField],
+  );
 
   const {
     columnFilters,
@@ -139,7 +154,7 @@ export function useGridTableConfiguration<Row extends RowData>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getRowId,
+    getRowId: resolveRowId,
     enableRowSelection: true,
     enableMultiRowSelection: selectionMode === 'multi',
     onColumnFiltersChange: setColumnFilters,
@@ -153,8 +168,8 @@ export function useGridTableConfiguration<Row extends RowData>({
     meta: {
       updateData: (rowId, columnId, value) => {
         setTableData((currentRows) =>
-          currentRows.map((row) =>
-            String(getRowId(row)) === String(rowId)
+          currentRows.map((row, index) =>
+            String(resolveRowId(row, index)) === String(rowId)
               ? ({ ...(row as Record<string, unknown>), [columnId]: value } as Row)
               : row,
           ),
@@ -187,6 +202,7 @@ export function useGridTableConfiguration<Row extends RowData>({
     globalFilter,
     globalFilterDraft,
     presentationRules,
+    reloadColumns,
     setColumnFilters,
     setColumnOrder,
     setColumnSettingsDraft,

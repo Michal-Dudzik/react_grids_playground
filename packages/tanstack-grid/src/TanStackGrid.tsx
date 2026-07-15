@@ -25,17 +25,13 @@ import { useGridState } from './hooks/useGridState';
 import { useGridTableConfiguration } from './hooks/useGridTableConfiguration';
 import { useAutoPageSize, useDismissibleLayer, useSelectionReport } from './hooks/tableHooks';
 import { createGridMessageResolver } from './core/gridIntl';
-import { buildGridThemeStyle, mergeGridComponents, useGridConfig } from './config/GridProvider';
+import { buildGridThemeStyle, mergeColumnPreferences, mergeGridComponents, useGridConfig } from './config/GridProvider';
 import {
   getEmptyAdvancedFilterValue,
   isAdvancedFilterConfigured,
   normalizeAdvancedFilterValue,
 } from './core/tableFilters';
 import type { GridErrorPanelProps, TanStackGridProps, TanStackGridRef } from './types';
-
-function getDefaultRowId(row: unknown) {
-  return String((row as { id?: string | number }).id ?? '');
-}
 
 const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(function TanStackGridContent(
   {
@@ -54,7 +50,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     exportAdapter,
     features = {},
     fetchColumns,
-    getRowId = getDefaultRowId,
+    getRowId,
     getCellProps,
     getHeaderProps,
     getRowProps,
@@ -84,6 +80,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     pageSize: controlledPageSize,
     printAdapter,
     rowDensity: controlledRowDensity,
+    rowIdField,
     rows: localRowsProp,
     selectionMode: controlledSelectionMode,
     showAllRows: controlledShowAllRows,
@@ -109,6 +106,12 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     ...(themeTokens ?? {}),
   });
   const providerDefaults = providerConfig.defaults ?? {};
+  const effectiveColumnPreferences = mergeColumnPreferences(
+    providerConfig.columnPreferences,
+    columnPreferences,
+  );
+  const effectiveFetchColumns =
+    fetchColumns ?? typeof effectiveColumnPreferences.load === 'function';
   const effectiveFooterConfig = {
     ...(providerDefaults.footerConfig ?? {}),
     ...(footerConfig ?? {}),
@@ -150,11 +153,11 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
 
   const gridState = useGridState({
     autoPageSize: controlledAutoPageSize,
-    columnPreferences,
+    columnPreferences: effectiveColumnPreferences,
     controlledState,
     editingEnabled: controlledEditingEnabled,
     features: effectiveFeatures,
-    fetchColumns,
+    fetchColumns: effectiveFetchColumns,
     initialAutoPageSize: effectiveInitialAutoPageSize,
     initialEditingEnabled: effectiveInitialEditingEnabled,
     initialPageSize: effectiveInitialPageSize,
@@ -171,16 +174,19 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
   });
 
   const tableConfig = useGridTableConfiguration({
+    appId,
     columnRequest,
     defaultColumns: effectiveDefaultColumns,
     editingEnabled: gridState.editingEnabled,
     getRowId,
+    gridId,
     loadColumns: gridState.loadColumns,
     localColumns,
     locale: effectiveLocale,
     pagination: gridState.pagination,
     persistence,
     rowSelection: gridState.rowSelection,
+    rowIdField,
     selectionMode: gridState.selectionMode,
     setPagination: gridState.setPagination,
     setRowSelection: gridState.setRowSelection,
@@ -188,6 +194,7 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     setTableData: gridState.setTableData,
     slots,
     sorting: gridState.sorting,
+    shouldFetchColumns: gridState.shouldFetchColumns,
     tableData: gridState.tableData,
     transformColumnsFn,
   });
@@ -247,7 +254,6 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     onSelectionChange,
     rowSelection: gridState.rowSelection,
     selectionMode: gridState.selectionMode,
-    getRowId,
     table: tableConfig.table,
   });
 
@@ -301,7 +307,9 @@ const TanStackGridContent = forwardRef<TanStackGridRef, TanStackGridProps>(funct
     currentDefaultColumnSizing: tableConfig.currentDefaultColumnSizing,
     dataColumns: tableConfig.dataColumns,
     gridId,
+    onResetColumnPreferences: gridState.resetColumnPreferences,
     onSaveColumnPreferences: gridState.saveColumnPreferences,
+    reloadColumns: tableConfig.reloadColumns,
     setColumnOrder: tableConfig.setColumnOrder,
     setColumnSettingsDraft: tableConfig.setColumnSettingsDraft,
     setColumnSizing: tableConfig.setColumnSizing,

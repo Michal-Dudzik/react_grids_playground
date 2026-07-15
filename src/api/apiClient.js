@@ -52,6 +52,7 @@ class ApiClient {
       body: body === undefined ? undefined : JSON.stringify(body),
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       method,
+      signal: options.signal,
     });
 
     if (!response.ok) {

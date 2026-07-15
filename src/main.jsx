@@ -15,6 +15,7 @@ import '@syncfusion/ej2-grids/styles/tailwind.css';
 import '@syncfusion/ej2-react-grids/styles/tailwind.css';
 import { App } from './app/App';
 import { AppLocaleProvider } from './app/locale';
+import { PortalGridProvider } from './app/PortalGridProvider';
 import { registerSyncfusionLicense } from './config/syncfusionLicense';
 import './styles/index.css';
 import './styles/syncfusion-theme.css';
@@ -23,10 +24,12 @@ registerSyncfusionLicense();
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppLocaleProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-      <Toaster position="bottom-right" />
+      <PortalGridProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+        <Toaster position="bottom-right" />
+      </PortalGridProvider>
     </AppLocaleProvider>
   </React.StrictMode>,
 );

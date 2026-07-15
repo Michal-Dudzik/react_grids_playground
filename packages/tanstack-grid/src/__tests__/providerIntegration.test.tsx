@@ -35,6 +35,87 @@ describe('GridProvider integration', () => {
     });
   });
 
+  it('loads columns from the provider adapter when appId and gridId are present', async () => {
+    const load = vi.fn().mockResolvedValue(columns);
+
+    render(
+      <GridProvider columnPreferences={{ load }} locale="pl-PL">
+        <TanStackGrid appId={7} columns={columns} gridId={29} rows={rows} />
+      </GridProvider>,
+    );
+
+    await waitFor(() => {
+      expect(load).toHaveBeenCalledWith(expect.objectContaining({
+        appId: 7,
+        gridId: 29,
+        languageCode: 'pl-PL',
+        signal: expect.any(AbortSignal),
+      }));
+    });
+  });
+
+  it('loads columns from the provider adapter without requiring both appId and gridId', async () => {
+    const load = vi.fn().mockResolvedValue(columns);
+
+    render(
+      <GridProvider columnPreferences={{ load }}>
+        <TanStackGrid appId="sales" columns={columns} rows={rows} />
+      </GridProvider>,
+    );
+
+    await waitFor(() => {
+      expect(load).toHaveBeenCalledWith(expect.objectContaining({
+        appId: 'sales',
+        signal: expect.any(AbortSignal),
+      }));
+    });
+  });
+
+  it('preserves class-based provider column adapter methods', async () => {
+    class ProviderColumnPreferences {
+      async load() {
+        return columns;
+      }
+
+      async save() {
+        return { success: true };
+      }
+
+      async reset() {
+        return { success: true };
+      }
+    }
+
+    const adapter = new ProviderColumnPreferences();
+    const loadSpy = vi.spyOn(adapter, 'load');
+
+    render(
+      <GridProvider columnPreferences={adapter}>
+        <TanStackGrid appId={7} columns={columns} gridId={29} rows={rows} />
+      </GridProvider>,
+    );
+
+    await waitFor(() => {
+      expect(loadSpy).toHaveBeenCalled();
+    });
+  });
+
+  it('lets local columnPreferences override provider adapter methods', async () => {
+    const providerLoad = vi.fn().mockResolvedValue(columns);
+    const localLoad = vi.fn().mockResolvedValue(columns);
+
+    render(
+      <GridProvider columnPreferences={{ load: providerLoad }}>
+        <TanStackGrid columnPreferences={{ load: localLoad }} columns={columns} rows={rows} />
+      </GridProvider>,
+    );
+
+    await waitFor(() => {
+      expect(localLoad).toHaveBeenCalled();
+      expect(providerLoad).not.toHaveBeenCalled();
+    });
+  });
+
   it('lets TanStackGrid props override provider labels', () => {
     const markup = renderToStaticMarkup(
       <GridProvider labels={{ searchPlaceholder: 'Provider search' }}>

@@ -514,6 +514,11 @@ export function ContextMenuItemButton({ item, onSelect }) {
         }}
         type="button"
       >
+        {item.icon ? (
+          <span aria-hidden="true" className="tanstack-grid__context-menu-icon">
+            {item.icon}
+          </span>
+        ) : null}
         <span>{item.label}</span>
         {item.meta ? <span className="tanstack-grid__context-menu-meta">{item.meta}</span> : null}
         {hasSubmenu ? <span className="tanstack-grid__context-menu-arrow">›</span> : null}
@@ -535,7 +540,7 @@ export function ContextMenu({ items, onClose, onHeightChange, onSelect, state })
 
   useLayoutEffect(() => {
     const el = menuRef.current;
-    if (!el || !onHeightChange) return;
+    if (!el || !onHeightChange || typeof ResizeObserver === 'undefined') return;
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];

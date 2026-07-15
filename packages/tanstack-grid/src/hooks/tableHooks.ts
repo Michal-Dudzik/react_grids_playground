@@ -14,26 +14,26 @@ import type { GridPresentationRule } from '../types';
 
 import type { GridColumnPreferencesAdapter } from '../types';
 
-function getDefaultRowId<Row extends RowData>(row: Row) {
-  return String((row as { id?: string | number }).id ?? '');
-}
-
 function areStringArraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 interface UseApiColumnsParams {
+  appId?: import('../types').GridInstanceId;
   columnRequest?: typeof fetch;
   defaultColumns: unknown[];
   fetchColumns?: boolean;
+  gridId?: import('../types').GridInstanceId;
   loadColumns?: GridColumnPreferencesAdapter['load'];
   localColumns: unknown[];
   locale: string;
 }
 
 export function useApiColumns({
+  appId,
   defaultColumns,
   fetchColumns,
+  gridId,
   loadColumns,
   localColumns,
   locale,
@@ -41,6 +41,7 @@ export function useApiColumns({
   const [apiColumns, setApiColumns] = useState([]);
   const [apiColumnsLoading, setApiColumnsLoading] = useState(false);
   const [apiColumnsError, setApiColumnsError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
   const shouldFetchColumns = fetchColumns ?? typeof loadColumns === 'function';
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function useApiColumns({
     setApiColumnsLoading(true);
     setApiColumnsError('');
 
-    Promise.resolve(loadColumns({ languageCode: locale, signal: abortController.signal }))
+    Promise.resolve(loadColumns({ appId, gridId, languageCode: locale, signal: abortController.signal }))
       .then((columnsData) => {
         if (!abortController.signal.aborted) {
           setApiColumns(extractColumnsArray(columnsData));
@@ -77,7 +78,7 @@ export function useApiColumns({
     return () => {
       abortController.abort();
     };
-  }, [loadColumns, locale, shouldFetchColumns]);
+  }, [appId, gridId, loadColumns, locale, reloadVersion, shouldFetchColumns]);
 
   const sourceColumns =
     shouldFetchColumns && apiColumns.length > 0
@@ -89,6 +90,7 @@ export function useApiColumns({
   return {
     apiColumnsError,
     apiColumnsLoading,
+    reloadColumns: () => setReloadVersion((currentVersion) => currentVersion + 1),
     shouldFetchColumns,
     sourceColumns,
   };
@@ -355,7 +357,6 @@ export function useAutoPageSize({
 }
 
 interface UseSelectionReportParams<Row extends RowData = RowData> {
-  getRowId?: (row: Row) => string;
   onSelectionChange?: (rows: Row[], context: { ids: string[]; table: Table<Row> }) => void;
   rowSelection: Record<string, boolean>;
   selectionMode: string;
@@ -363,7 +364,6 @@ interface UseSelectionReportParams<Row extends RowData = RowData> {
 }
 
 export function useSelectionReport<Row extends RowData = RowData>({
-  getRowId = getDefaultRowId,
   onSelectionChange,
   rowSelection,
   selectionMode,
@@ -376,7 +376,7 @@ export function useSelectionReport<Row extends RowData = RowData>({
 
   useEffect(() => {
     const selectedRowModels = table.getSelectedRowModel().rows;
-    const selectedRowIds = selectedRowModels.map((row) => getRowId(row.original));
+    const selectedRowIds = selectedRowModels.map((row) => row.id);
 
     setSelectedRowsReport((current) => (areStringArraysEqual(current, selectedRowIds) ? current : selectedRowIds));
     onSelectionChangeRef.current?.(
@@ -386,7 +386,7 @@ export function useSelectionReport<Row extends RowData = RowData>({
         table,
       },
     );
-  }, [getRowId, rowSelection, selectionMode, table]);
+  }, [rowSelection, selectionMode, table]);
 
   return selectedRowsReport;
 }

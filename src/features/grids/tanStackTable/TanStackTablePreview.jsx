@@ -1,5 +1,4 @@
 import { forwardRef, useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
 import {
   createLocalStorageGridStateAdapter,
   TanStackGrid,
@@ -67,7 +66,6 @@ const demoColumns = [
 ];
 
 export const TanStackTablePreview = forwardRef(function TanStackTablePreview(props, ref) {
-  const intl = useIntl();
   const [selectionMode, setSelectionMode] = useState('multi');
   const [pageSize, setPageSize] = useState(5);
   const [showAllRows, setShowAllRows] = useState(false);
@@ -113,8 +111,6 @@ export const TanStackTablePreview = forwardRef(function TanStackTablePreview(pro
         editingEnabled={editingEnabled}
         onAutoPageSizeChange={setAutoPageSize}
         onEditingEnabledChange={setEditingEnabled}
-        formatMessage={(descriptor, values) => intl.formatMessage(descriptor, values)}
-        locale={intl.locale}
         onPageSizeChange={setPageSize}
         onRowDensityChange={setRowDensity}
         onSelectionModeChange={setSelectionMode}

@@ -33,6 +33,8 @@ export interface GridLabels {
   [key: string]: string;
 }
 
+export type GridInstanceId = string | number;
+
 export interface GridThemeTokens {
   accent?: string;
   accentSoft?: string;
@@ -171,6 +173,7 @@ export interface GridDefaults {
 }
 
 export interface GridProviderValue {
+  columnPreferences?: GridColumnPreferencesAdapter;
   components?: GridComponents;
   defaults?: GridDefaults;
   formatMessage?: GridFormatMessage;
@@ -193,9 +196,17 @@ export interface GridPresentationRule {
   textColor?: string;
 }
 
+export interface GridColumnPreferencesContext extends Record<string, unknown> {
+  appId?: GridInstanceId;
+  gridId?: GridInstanceId;
+  languageCode?: string;
+  signal?: AbortSignal;
+}
+
 export interface GridColumnPreferencesAdapter {
-  load?: (context?: Record<string, unknown>) => Promise<unknown[]>;
-  save?: (context: { payload: unknown } & Record<string, unknown>) => Promise<unknown>;
+  load?: (context?: GridColumnPreferencesContext) => Promise<unknown>;
+  reset?: (context?: GridColumnPreferencesContext) => Promise<unknown>;
+  save?: (context: GridColumnPreferencesContext & { payload: unknown }) => Promise<unknown>;
 }
 
 export interface GridExportAdapter {
@@ -212,10 +223,12 @@ export interface GridClipboardAdapter {
 }
 
 export interface GridSlots<Row extends RowData = RowData> {
-  cellRenderers?: Record<string, (context: GridCellPreviewContext<Row>) => ReactNode>;
-  cellPreviewRenderers?: Record<string, (context: GridCellPreviewContext<Row>) => ReactNode>;
-  renderCellPreview?: (context: GridCellPreviewContext<Row>) => ReactNode;
+  cellRenderers?: Record<string, GridCellRenderer<Row>>;
+  cellPreviewRenderers?: Record<string, GridCellRenderer<Row>>;
+  renderCellPreview?: GridCellRenderer<Row>;
 }
+
+export type GridCellRenderer<Row extends RowData = RowData> = (context: GridCellPreviewContext<Row>) => ReactNode;
 
 export interface GridCellPreviewContext<Row extends RowData = RowData> {
   column: GridColumnDef<Row>;
@@ -224,6 +237,39 @@ export interface GridCellPreviewContext<Row extends RowData = RowData> {
   row?: Row;
   searchTerm?: string;
   value: unknown;
+}
+
+export interface GridContextMenuState<Row extends RowData = RowData> {
+  cellId?: string;
+  columnId?: string;
+  displayValue?: unknown;
+  row?: Row;
+  rowId?: string;
+  target: 'cell' | 'header';
+  value?: unknown;
+}
+
+export interface GridContextMenuItem<Row extends RowData = RowData> {
+  disabled?: boolean;
+  icon?: ReactNode;
+  items?: GridContextMenuItem<Row>[];
+  key: string;
+  label: ReactNode;
+  meta?: ReactNode;
+  onSelect?: (context: GridContextMenuState<Row>) => void;
+  separator?: boolean;
+}
+
+export type GridContextMenuItems<Row extends RowData = RowData> =
+  | GridContextMenuItem<Row>[]
+  | ((context: GridContextMenuState<Row>) => GridContextMenuItem<Row>[]);
+
+export interface GridContextMenuConfig<Row extends RowData = RowData> {
+  cellItems?: GridContextMenuItems<Row>;
+  disabledMap?: Record<string, boolean | ((context: { item: GridContextMenuItem<Row>; menuState: GridContextMenuState<Row> }) => boolean)>;
+  headerItems?: GridContextMenuItems<Row>;
+  hiddenMap?: Record<string, boolean | ((context: { item: GridContextMenuItem<Row>; menuState: GridContextMenuState<Row> }) => boolean)>;
+  labels?: Record<string, string>;
 }
 
 export interface TanStackGridRef<Row extends RowData = RowData> {
@@ -246,10 +292,10 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   rows?: Row[];
   columns?: GridColumnDef<Row>[];
   aggregationConfig?: AggregationConfig;
-  appId?: string;
+  appId?: GridInstanceId;
   autoPageSize?: boolean;
   columnRequest?: typeof fetch;
-  contextMenuConfig?: Record<string, unknown>;
+  contextMenuConfig?: GridContextMenuConfig<Row>;
   defaultColumns?: GridColumnDef<Row>[];
   editingEnabled?: boolean;
   enableAltRow?: boolean;
@@ -257,7 +303,7 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   getCellProps?: (context: Record<string, unknown>) => Record<string, unknown>;
   getHeaderProps?: (context: Record<string, unknown>) => Record<string, unknown>;
   getRowProps?: (context: Record<string, unknown>) => Record<string, unknown>;
-  gridId?: string;
+  gridId?: GridInstanceId;
   initialAutoPageSize?: boolean;
   initialEditingEnabled?: boolean;
   initialPageSize?: number;
@@ -288,7 +334,8 @@ export interface TanStackGridProps<Row extends RowData = RowData> {
   tableProps?: TableHTMLAttributes<HTMLTableElement>;
   tableWrapperProps?: HTMLAttributes<HTMLDivElement>;
   transformColumnsFn?: (columns: ColumnDef<Row>[]) => ColumnDef<Row>[];
-  getRowId?: (row: Row) => string;
+  getRowId?: (row: Row, index: number) => string;
+  rowIdField?: keyof Row | string;
   features?: GridFeatureFlags;
   persistence?: {
     columnState?: GridStateAdapter;

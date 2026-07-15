@@ -4,6 +4,7 @@ import {
   buildColumnSettingsState,
   buildTanStackDataColumns,
   normalizeColumnOrder,
+  resolveGridRowId,
 } from '../core/tableColumns';
 import { advancedColumnFilterFn, normalizeFilterState } from '../core/tableFilters';
 import {
@@ -60,6 +61,17 @@ describe('core column helpers', () => {
       size: 160,
       meta: expect.objectContaining({ editable: false }),
     });
+  });
+
+  it('resolves stable row ids from an explicit field, API primary key, id or index', () => {
+    const apiColumns = buildTanStackDataColumns([
+      { alias: 'DocumentKey', description: 'Document key', isPrimaryKey: true },
+    ]);
+
+    expect(resolveGridRowId({ customKey: 10 }, 0, apiColumns, 'customKey')).toBe('10');
+    expect(resolveGridRowId({ documentKey: 'DOC-2' }, 1, apiColumns)).toBe('DOC-2');
+    expect(resolveGridRowId({ id: 'row-3' }, 2, [])).toBe('row-3');
+    expect(resolveGridRowId({ owner: 'No key' }, 3, [])).toBe('3');
   });
 });
 

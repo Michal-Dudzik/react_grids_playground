@@ -20,6 +20,56 @@ export function getColumnId(column) {
   return column?.id ?? column?.accessorKey ?? column?.field ?? column?.alias;
 }
 
+function readRowIdentityValue(row, field) {
+  if (!row || !field) {
+    return undefined;
+  }
+
+  const normalizedField = String(field);
+  const candidateFields = [
+    normalizedField,
+    toCamelCase(normalizedField),
+    normalizedField.charAt(0).toUpperCase() + normalizedField.slice(1),
+  ];
+
+  for (const candidateField of candidateFields) {
+    const value = row[candidateField];
+
+    if (value !== undefined && value !== null && value !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+export function resolveGridRowId(row, index, dataColumns = [], rowIdField = undefined) {
+  const primaryColumn = dataColumns.find((column) =>
+    column?.meta?.originalColumn?.isPrimaryKey === true &&
+    column?.meta?.originalColumn?._inferredPrimaryKey !== true,
+  );
+  const originalPrimaryColumn = primaryColumn?.meta?.originalColumn;
+  const candidateFields = [
+    rowIdField,
+    getColumnId(primaryColumn),
+    originalPrimaryColumn?.field,
+    originalPrimaryColumn?.alias,
+    'id',
+    'ID',
+    'Id',
+  ];
+
+  for (const candidateField of candidateFields) {
+    const value = readRowIdentityValue(row, candidateField);
+
+    if (value !== undefined) {
+      return String(value);
+    }
+  }
+
+  return String(index);
+}
+
 export function buildDefaultColumnOrder(dataColumns = baseColumns) {
   return ['select', ...dataColumns.map(getColumnId).filter(Boolean)];
 }
@@ -222,6 +272,7 @@ export function standardizeColumns(columns) {
   return standardizedColumns.map((column, index) => ({
     ...column,
     isPrimaryKey: index === Math.max(primaryKeyIndex, 0),
+    _inferredPrimaryKey: index === Math.max(primaryKeyIndex, 0),
   }));
 }
 
