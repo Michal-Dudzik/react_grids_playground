@@ -134,7 +134,7 @@ export function GridFooter({
           </label>
         ) : null}
 
-        {buttons.length > 0 ? <Divider className="shared-grid-footer__divider" orientation="vertical" /> : null}
+        {buttons.length > 0 ? <Divider className="shared-grid-footer__divider" type="vertical" /> : null}
 
         {buttons.length > 0 ? (
           <Space className="shared-grid-footer__actions" size={8}>
